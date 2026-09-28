@@ -1,0 +1,13 @@
+{
+  "name": "golden-vb-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env index.js",
+    "dev":   "node --env-file=.env --watch index.js",
+    "seed":  "node --env-file=.env seed.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.0.0"
+  }
+}

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Golden VB — Online Booking & Ocular Visit Scheduling</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Asap:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ============ LOGIN SCREEN ============ -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">☀</div>
+      <h1 class="login-title">Golden Villa</h1>
+      <p class="login-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
+
+      <!-- CUSTOMER: one click -->
+      <button type="button" id="guest-btn" class="btn btn-gold btn-full" style="margin-bottom:6px">
+        Continue as Customer →
+      </button>
+      <p class="login-hint">Book instantly — no account needed.</p>
+
+      <p class="login-divider">or log in as staff</p>
+
+      <!-- STAFF: real login with role selector -->
+      <form id="login-form" class="login-form">
+        <select id="login-role" required>
+          <option value="" disabled selected>Select your role…</option>
+          <option value="admin">Admin</option>
+          <option value="caretaker">Caretaker</option>
+          <option value="owner">Owner</option>
+        </select>
+        <input type="email" id="login-email" placeholder="Email" required />
+        <input type="password" id="login-password" placeholder="Password" required />
+        <p id="login-error" class="error hidden"></p>
+        <button type="submit" id="login-btn" class="btn btn-gold btn-full">Log in</button>
+      </form>
+
+      <!-- CARETAKER SELF-REGISTRATION -->
+      <button type="button" id="show-register" class="link-btn" style="margin-top:10px">
+        New caretaker? Register here
+      </button>
+
+      <form id="register-form" class="login-form hidden" style="margin-top:10px">
+        <p class="login-hint" style="margin-bottom:6px">Caretaker registration</p>
+        <input type="text" id="reg-name" placeholder="Full name" required />
+        <input type="email" id="reg-email" placeholder="Email" required />
+        <input type="password" id="reg-password" placeholder="Password (min 6 chars)" required />
+        <input type="text" id="reg-phone" placeholder="Phone (optional)" />
+        <p id="register-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-green btn-full">Create caretaker account</button>
+        <button type="button" id="cancel-register" class="link-btn">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ APP SHELL ============ -->
+  <div id="app" class="hidden">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-sun">☀</span>
+        <div>
+          <p class="brand-name">Golden Villa</p>
+          <p class="brand-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
+        </div>
+      </div>
+      <nav class="role-tabs" id="role-tabs">
+        <button data-role="customer" class="tab active">Customer</button>
+        <button data-role="admin" class="tab">Administrator</button>
+        <button data-role="caretaker" class="tab">Caretaker</button>
+        <button data-role="owner" class="tab">Owner</button>
+      </nav>
+      <div class="user-chip">
+        <span id="user-name"></span>
+        <button id="logout-btn" class="logout">Log out</button>
+      </div>
+    </header>
+
+    <!-- CUSTOMER VIEW -->
+    <section id="view-customer" class="view">
+      <div class="hero">
+        <p class="hero-kicker">ONLINE BOOKING & OCULAR VISIT SCHEDULING</p>
+        <h2 class="hero-title">Your golden day, <em>reserved</em> in minutes.</h2>
+        <p class="hero-sub">One booking per day. Real-time availability. A voucher in hand before you leave the house.</p>
+      </div>
+
+      <div class="steps" id="steps"></div>
+
+      <div class="step-panel" id="step-0">
+        <h3 class="panel-title">Choose your stay</h3>
+        <p class="panel-sub">Three ways to spend a golden day in Malolos.</p>
+        <div class="pkg-grid" id="pkg-grid"></div>
+      </div>
+
+      <div class="step-panel hidden" id="step-1">
+        <h3 class="panel-title">Pick a date</h3>
+        <p class="panel-sub">Live from the reservation database. One booking per day.</p>
+        <div class="cal-wrap">
+          <div class="card" id="cal-1"></div>
+          <div class="card" id="cal-2"></div>
+        </div>
+        <div class="card guests-row">
+          <span class="label">Guests</span>
+          <button id="g-minus" class="round-btn">−</button>
+          <span id="g-count" class="g-count">10</span>
+          <button id="g-plus" class="round-btn">+</button>
+          <span class="muted" id="g-max"></span>
+          <span id="picked-date" class="picked"></span>
+        </div>
+      </div>
+
+      <div class="step-panel hidden" id="step-2">
+        <h3 class="panel-title">Who's coming?</h3>
+        <p class="panel-sub">Fill in your details so we can prepare your voucher.</p>
+        <div class="form-col">
+          <label>Full name <input id="f-name" /></label>
+          <label>Mobile number <input id="f-phone" /></label>
+          <label>Email <input id="f-email" /></label>
+        </div>
+      </div>
+
+      <div class="step-panel hidden" id="step-3">
+        <h3 class="panel-title">Secure it with a deposit</h3>
+        <p class="panel-sub" id="deposit-line"></p>
+        <div class="hold-banner">⏱ This date is held for you for <b id="hold-timer" class="mono"></b>. After that, it goes back on the calendar.</div>
+        <div class="card pay-channels">
+          <p class="label">SEND DEPOSIT VIA</p>
+          <span class="chip chip-green">GCash · 0917 555 0101</span>
+          <span class="chip chip-gold">BDO · 0044 2210 8890</span>
+        </div>
+        <button id="upload-proof" class="upload-box">
+          <span id="upload-text">📤 Upload a photo of your deposit slip or GCash receipt</span>
+        </button>
+      </div>
+
+      <div class="step-panel hidden" id="step-4">
+        <h3 class="panel-title center" id="voucher-greet"></h3>
+        <p class="panel-sub center">Your booking is in the queue for the admin to verify. Here's your reference.</p>
+        <div id="voucher-slot"></div>
+        <p class="center"><button id="book-again" class="link-btn">Book another date</button></p>
+      </div>
+
+      <div class="step-nav" id="step-nav">
+        <button id="back-btn" class="btn btn-ghost">← Back</button>
+        <button id="next-btn" class="btn btn-gold">Continue →</button>
+      </div>
+      <p id="customer-error" class="error hidden"></p>
+
+      <div class="card visit-card">
+        <h3 class="panel-title">👁 Schedule an ocular visit</h3>
+        <p class="panel-sub">Tour the villa before you commit. Only on unreserved dates.</p>
+        <div class="visit-row">
+          <label>Date <input type="date" id="visit-date" /></label>
+          <label>Time
+            <select id="visit-time">
+              <option>9:00 AM</option><option>10:00 AM</option><option>1:00 PM</option>
+              <option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option>
+            </select>
+          </label>
+          <button id="visit-book" class="btn btn-green">Book visit</button>
+        </div>
+        <p id="visit-msg" class="visit-msg"></p>
+        <div id="visit-list" class="visit-list"></div>
+      </div>
+    </section>
+
+    <!-- ADMIN VIEW -->
+    <section id="view-admin" class="view hidden">
+      <div class="view-head">
+        <div>
+          <h3 class="panel-title big">Reservation queue</h3>
+          <p class="panel-sub">Live from the reservations table. Refreshes every 5 seconds.</p>
+        </div>
+        <span class="chip chip-gold" id="verify-count"></span>
+      </div>
+      <p id="admin-error" class="error hidden"></p>
+      <div class="admin-grid">
+        <div id="queue-list" class="queue-list"></div>
+        <div id="queue-detail" class="card detail-panel"></div>
+      </div>
+    </section>
+
+    <!-- CARETAKER VIEW -->
+    <section id="view-caretaker" class="view hidden">
+      <h3 class="panel-title big">Today at the villa</h3>
+      <p class="panel-sub" id="today-label"></p>
+      <p id="caretaker-error" class="error hidden"></p>
+      <div class="caretaker-grid">
+        <div class="card">
+          <p class="label">🚪 ARRIVALS</p>
+          <div id="arrivals-list"></div>
+        </div>
+        <div class="card">
+          <p class="label">👁 OCULAR VISITS</p>
+          <div id="caretaker-visits"></div>
+        </div>
+        <div class="card">
+          <p class="label">📅 WALK-IN QUICK CHECK</p>
+          <p class="panel-sub">Someone at the gate? Check the live calendar first.</p>
+          <div id="walkin-days" class="walkin-days"></div>
+          <div id="walkin-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OWNER VIEW -->
+    <section id="view-owner" class="view hidden">
+      <h3 class="panel-title big">How the villa is doing</h3>
+      <p class="panel-sub">Live aggregates from the reservation database.</p>
+      <p id="owner-error" class="error hidden"></p>
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="owner-grid">
+        <div class="card">
+          <p class="label">REVENUE BY MONTH</p>
+          <p class="panel-sub">₱ thousands · 2026 approved + pending</p>
+          <canvas id="monthly-chart" width="520" height="220"></canvas>
+        </div>
+        <div class="card">
+          <p class="label">PACKAGE SHARE</p>
+          <p class="panel-sub">approved bookings by package</p>
+          <div id="pkg-share"></div>
+          <p class="label" style="margin-top:16px">UPCOMING GUESTS</p>
+          <div id="upcoming-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">Golden VB · System Analysis &amp; Design case study · Capua, Del Rosario, Palabay · Sept 2026</footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

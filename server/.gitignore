@@ -1,0 +1,6 @@
+.env
+node_modules/
+goldenvb.db
+goldenvb.db-shm
+goldenvb.db-wal
+*.log
