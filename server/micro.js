@@ -15,8 +15,10 @@ export function Router() {
     return params;
   };
   return {
-    get: register("GET"),
-    post: register("POST"),
+    get:    register("GET"),
+    post:   register("POST"),
+    put:    register("PUT"),
+    delete: register("DELETE"),
     routes,
     handle: async (req, res) => {
       for (const route of routes) {

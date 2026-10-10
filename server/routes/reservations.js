@@ -3,165 +3,212 @@ import db from "../db.js";
 import { requireAuth, requireRole } from "../auth.js";
 
 const r = Router();
-const isoDate = (d) => d.toLocaleDateString("sv-SE");
 
-// ---------- public ----------
+// ---------- list packages ----------
 r.get("/api/reservations/packages", async (req, res) => {
-  res.json({ packages: await db.packages.all() });
+  const packages = await db.packages.all();
+  res.json({ packages });
 });
 
+// ---------- availability ----------
 r.get("/api/reservations/availability", async (req, res) => {
-  res.json({ days: await db.reservations.activeDays() });
+  const days = await db.reservations.activeDays();
+  res.json({ days });
 });
 
-// ---------- customer: create a 24h hold ----------
-r.post("/api/reservations", requireAuth, requireRole("customer", "admin"), async (req, res) => {
+// ---------- create a reservation ----------
+r.post("/api/reservations", requireAuth, async (req, res) => {
   const { package_id, date, guests, guest_name, guest_phone, guest_email } = req.body || {};
+  if (!package_id || !date || !guests) return res.status(400).json({ error: "package_id, date and guests are required" });
+
   const pkg = await db.packages.byId(package_id);
-  if (!pkg || !date || !guests)
-    return res.status(400).json({ error: "Package, date and guests are required" });
-  if (guests > pkg.max_guests)
-    return res.status(400).json({ error: `Max ${pkg.max_guests} guests for ${pkg.name}` });
+  if (!pkg) return res.status(404).json({ error: "Package not found" });
+
+  if (guests > (pkg.max_guests ?? 30))
+    return res.status(400).json({ error: "Too many guests for this package" });
+
+  const holdExpiry = new Date(Date.now() + 24 * 3600e3).toISOString();
 
   try {
-    const row = await db.reservations.insert({
+    const reservation = await db.reservations.insert({
       user_id: req.user.id,
       package_id,
       date,
       guests,
+      guest_name,
+      guest_phone,
+      guest_email,
+      status: "hold",
       deposit_amount: Math.round(pkg.price / 2),
-      hold_expires_at: new Date(Date.now() + 24 * 3600e3).toISOString(),
-      // 👇 the guest's real name/contact, captured by the booking form
-      guest_name: guest_name || null,
-      guest_phone: guest_phone || null,
-      guest_email: guest_email || null,
+      hold_expires_at: holdExpiry,
     });
-    res.status(201).json({
-      id: row.id,
-      message: "Date held for 24 hours. Upload your deposit to confirm.",
-    });
-  } catch (e) {
-    if (e.message === "one_booking_per_day")
-      return res.status(409).json({ error: "That date is already taken. Pick another one." });
-    throw e;
+    res.status(201).json(reservation);
+  } catch (err) {
+    if (err.message === "one_booking_per_day")
+      return res.status(409).json({ error: "That date is already taken. Pick another." });
+    throw err;
   }
 });
 
-// ---------- upload deposit proof → verify ----------
+// ---------- attach a deposit proof ----------
 r.post("/api/reservations/:id/deposit", requireAuth, async (req, res) => {
-  const row = await db.reservations.byId(req.params.id);
-  if (!row || (row.user_id !== req.user.id && req.user.role !== "admin"))
-    return res.status(404).json({ error: "Reservation not found" });
-  await db.reservations.update(row.id, {
-    deposit_proof: req.body?.proof_name || "deposit.jpg",
+  const resv = await db.reservations.byId(req.params.id);
+  if (!resv) return res.status(404).json({ error: "Reservation not found" });
+  if (resv.user_id !== req.user.id && req.user.role === "customer")
+    return res.status(403).json({ error: "Not your reservation" });
+
+  const updated = await db.reservations.update(resv.id, {
+    deposit_proof: req.body?.proof_name || "proof.jpg",
     status: "verify",
   });
-  res.json({ message: "Deposit submitted. The admin will verify it shortly." });
+  res.json(updated);
 });
 
-// ---------- list (scoped by role) ----------
-r.get("/api/reservations", requireAuth, async (req, res) => {
-  const raw =
-    req.user.role === "customer"
-      ? (await db.reservations.byUser(req.user.id)).reverse()
-      : await db.reservations.all();
-
-  const [users, pkgs] = await Promise.all([db.users.all(), db.packages.all()]);
-  const uMap = Object.fromEntries(users.map((u) => [u.id, u]));
-  const pMap = Object.fromEntries(pkgs.map((p) => [p.id, p]));
-
-  const rows = raw.map((r) => ({
-    ...r,
-    // prefer the guest name captured at booking time; fall back to the account name
-    guest: r.guest_name || uMap[r.user_id]?.name || "Guest",
-    phone: r.guest_phone || uMap[r.user_id]?.phone || null,
-    package: pMap[r.package_id]?.name,
-    price: pMap[r.package_id]?.price,
-  }));
-  res.json({ reservations: rows });
-});
-
-// ---------- admin review ----------
-r.post("/api/reservations/:id/review", requireAuth, requireRole("admin"), async (req, res) => {
-  const row = await db.reservations.byId(req.params.id);
-  if (!row) return res.status(404).json({ error: "Reservation not found" });
-
-  const { action } = req.body || {};
-  if (action === "approve") {
-    const ref = "GVB-2026-" + String(row.id).padStart(4, "0");
-    await db.reservations.update(row.id, { status: "approved", ref });
-    return res.json({ message: "Approved. Voucher " + ref + " issued.", ref });
-  }
-  if (action === "reject") {
-    await db.reservations.update(row.id, { status: "rejected", hold_expires_at: null });
-    return res.json({ message: "Rejected. The guest has been notified." });
-  }
-  res.status(400).json({ error: "action must be approve or reject" });
-});
-
-// ---------- caretaker: today's arrivals + check-in ----------
-r.get("/api/reservations/arrivals", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
-  const today = isoDate(new Date());
+// ---------- list all reservations (admin only) ----------
+r.get("/api/reservations", requireAuth, requireRole("admin"), async (req, res) => {
   const all = await db.reservations.all();
-  const todays = all.filter((x) => x.date === today && x.status === "approved");
+  const pkgs = await db.packages.all();
+  const pkgMap = Object.fromEntries(pkgs.map((p) => [p.id, p]));
 
-  const [users, pkgs] = await Promise.all([db.users.all(), db.packages.all()]);
-  const uMap = Object.fromEntries(users.map((u) => [u.id, u]));
-  const pMap = Object.fromEntries(pkgs.map((p) => [p.id, p]));
-
-  const arrivals = todays.map((x) => ({
-    id: x.id,
-    ref: x.ref,
-    guests: x.guests,
-    checked_in: x.checked_in,
-    guest: x.guest_name || uMap[x.user_id]?.name || "Guest",
-    package: pMap[x.package_id]?.name,
+  const enriched = all.map((x) => ({
+    ...x,
+    guest: x.guest_name || "Guest",
+    package: pkgMap[x.package_id]?.name || x.package_id,
+    price: pkgMap[x.package_id]?.price || 0,
   }));
-  res.json({ arrivals });
+  res.json({ reservations: enriched });
 });
 
+// ---------- admin review (approve / reject) ----------
+r.post("/api/reservations/:id/review", requireAuth, requireRole("admin"), async (req, res) => {
+  const { action } = req.body || {};
+  if (!["approve", "reject"].includes(action)) return res.status(400).json({ error: "action must be approve or reject" });
+
+  const resv = await db.reservations.byId(req.params.id);
+  if (!resv) return res.status(404).json({ error: "Reservation not found" });
+
+  const patch = action === "approve"
+    ? { status: "approved", ref: "GVB-2026-" + String(resv.id).padStart(4, "0") }
+    : { status: "rejected" };
+
+  const updated = await db.reservations.update(resv.id, patch);
+  res.json(updated);
+});
+
+// ---------- caretaker: arrivals (today + tomorrow) ----------
+r.get("/api/reservations/arrivals", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400e3).toISOString().slice(0, 10);
+
+  const all = await db.reservations.all();
+  const pkgs = await db.packages.all();
+  const pkgMap = Object.fromEntries(pkgs.map((p) => [p.id, p]));
+
+  const build = (rows) =>
+    rows
+      .filter((x) => x.status === "approved")
+      .map((x) => ({
+        id: x.id,
+        guest: x.guest_name || "Guest",
+        ref: x.ref,
+        package: pkgMap[x.package_id]?.name || x.package_id,
+        guests: x.guests,
+        phone: x.guest_phone,
+        checked_in: x.checked_in,
+        checked_in_at: x.checked_in_at || null,
+        note: x.caretaker_note || null,
+        source: x.source || "online",
+      }));
+
+  res.json({
+    arrivals: build(all.filter((x) => x.date === today)),
+    tomorrow: build(all.filter((x) => x.date === tomorrow)),
+    todayLabel: today,
+    tomorrowLabel: tomorrow,
+  });
+});
+
+// ---------- caretaker: toggle check-in (with timestamp + undo) ----------
 r.post("/api/reservations/:id/checkin", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
-  const row = await db.reservations.byId(req.params.id);
-  if (!row) return res.status(404).json({ error: "Reservation not found" });
-  const next = row.checked_in ? 0 : 1;
-  await db.reservations.update(row.id, { checked_in: next });
-  res.json({ id: row.id, checked_in: !!next });
+  const resv = await db.reservations.byId(req.params.id);
+  if (!resv) return res.status(404).json({ error: "Reservation not found" });
+
+  if (resv.checked_in) {
+    // undo
+    const updated = await db.reservations.update(resv.id, {
+      checked_in: 0,
+      checked_in_at: null,
+      checked_in_by: null,
+    });
+    return res.json(updated);
+  }
+
+  const updated = await db.reservations.update(resv.id, {
+    checked_in: 1,
+    checked_in_at: new Date().toISOString(),
+    checked_in_by: req.user.id,
+  });
+  res.json(updated);
 });
 
-// ---------- system: expire unpaid holds ----------
-r.post("/api/reservations/expire-holds", async (req, res) => {
-  res.json({ expired: await db.reservations.expireHolds(new Date().toISOString()) });
+// ---------- caretaker: save a note on a reservation ----------
+r.post("/api/reservations/:id/note", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
+  const resv = await db.reservations.byId(req.params.id);
+  if (!resv) return res.status(404).json({ error: "Reservation not found" });
+
+  const note = (req.body?.note || "").slice(0, 400); // cap length
+  const updated = await db.reservations.update(resv.id, { caretaker_note: note || null });
+  res.json(updated);
 });
 
 // ---------- ocular visits ----------
 r.post("/api/reservations/visits", requireAuth, async (req, res) => {
   const { date, time, party_size } = req.body || {};
-  if (!date || !time) return res.status(400).json({ error: "Date and time are required" });
-  if (await db.reservations.bookedOn(date))
-    return res.status(409).json({ error: "The resort is reserved that day. Pick a free date." });
+  if (!date || !time) return res.status(400).json({ error: "date and time are required" });
 
-  const row = await db.visits.insert({
+  const status = (await db.reservations.activeDays())[date];
+  if (status === "approved" || status === "verify")
+    return res.status(409).json({ error: "That date is already booked. Choose another." });
+
+  const visit = await db.visits.insert({
     user_id: req.user.id,
     date,
     time,
-    party_size: party_size || 2,
+    party_size: party_size ?? 2,
   });
-  res.status(201).json({ id: row.id, message: "Ocular visit scheduled. See you there!" });
+  res.status(201).json({ message: "Ocular visit booked for " + date + " at " + time, visit });
 });
 
 r.get("/api/reservations/visits", requireAuth, async (req, res) => {
-  const raw =
-    req.user.role === "customer"
-      ? await db.visits.byUser(req.user.id)
-      : await db.visits.all();
+  if (req.user.role === "customer") {
+    const mine = await db.visits.byUser(req.user.id);
+    const active = mine.filter((v) => !["completed", "cancelled", "no_show"].includes(v.status));
+    return res.json({ visits: active });
+  }
+  const active = await db.visits.all();
+  res.json({ visits: active });
+});
 
-  const users = await db.users.all();
-  const uMap = Object.fromEntries(users.map((u) => [u.id, u]));
-  const rows = raw.map((v) => ({
-    ...v,
-    guest: v.guest_name || uMap[v.user_id]?.name || "",
-  }));
-  res.json({ visits: rows });
+// ---------- caretaker: visit arrived ----------
+r.post("/api/reservations/visits/:id/arrived", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
+  const v = await db.visits.byId(req.params.id);
+  if (!v) return res.status(404).json({ error: "Visit not found" });
+  if (["completed", "cancelled", "no_show"].includes(v.status))
+    return res.status(400).json({ error: "Visit is already closed" });
+
+  const updated = await db.visits.markArrived(v.id);
+  res.json({ visit: updated });
+});
+
+// ---------- caretaker: visit no-show ----------
+r.post("/api/reservations/visits/:id/no-show", requireAuth, requireRole("caretaker", "admin"), async (req, res) => {
+  const v = await db.visits.byId(req.params.id);
+  if (!v) return res.status(404).json({ error: "Visit not found" });
+  if (["completed", "cancelled", "no_show"].includes(v.status))
+    return res.status(400).json({ error: "Visit is already closed" });
+
+  const updated = await db.visits.markNoShow(v.id, req.user.id);
+  res.json({ visit: updated });
 });
 
 export default r;

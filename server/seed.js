@@ -30,9 +30,11 @@ await Promise.all([
 console.log("Packages: 3 inserted");
 
 // ---------- staff accounts ----------
-await seedUser("Admin Ana", "admin@gmail.com", "12345678", "admin", null);
+await seedUser("Admin Ana",    "mkedanielcapua@gmail.com",     "12345678", "admin",     null);
 await seedUser("Mang Carding", "caretaker@gmail.com", "12345678", "caretaker", null);
-await seedUser("Villa Owner", "owner.owner@gmail.com", "12345678", "owner", null);
+
+// ---------- TEMP: manager for testing (remove before final build) ----------
+await seedUser("Temp Manager", "manager@goldenvb.ph", "manager123", "manager", null);
 
 // ---------- shared guest customer ----------
 await seedUser("Guest Customer", "guest@goldenvb.ph", "12345678", "customer", null);

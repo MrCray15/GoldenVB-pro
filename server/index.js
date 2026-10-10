@@ -5,16 +5,26 @@ import { fileURLToPath } from "node:url";
 import authRoutes from "./routes/auth.js";
 import reservationRoutes from "./routes/reservations.js";
 import reportRoutes from "./routes/reports.js";
+import adminRoutes from "./routes/admin.js";
+import managerRoutes from "./routes/manager.js";
+import db from "./db.js";
 
 const PORT = process.env.PORT || 3001;
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
-const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon" };
-const routers = [authRoutes, reservationRoutes, reportRoutes];
+const MIME = {
+  ".html": "text/html",
+  ".css": "text/css",
+  ".js": "text/javascript",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+};
+const routers = [authRoutes, reservationRoutes, reportRoutes, adminRoutes, managerRoutes];
 
 const server = http.createServer(async (req, res) => {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
@@ -22,7 +32,12 @@ const server = http.createServer(async (req, res) => {
   req.path = url.pathname;
 
   // json helpers
-  res.status = (code) => ({ json: (obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); } });
+  res.status = (code) => ({
+    json: (obj) => {
+      res.writeHead(code, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(obj));
+    },
+  });
   res.json = (obj) => res.status(200).json(obj);
 
   // body
@@ -30,7 +45,7 @@ const server = http.createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   try { req.body = body ? JSON.parse(body) : {}; } catch { req.body = {}; }
 
-  // static files (the whole frontend)
+  // static files
   if (req.method === "GET" && !req.path.startsWith("/api/")) {
     const rel = req.path === "/" ? "/index.html" : req.path;
     const file = path.normalize(path.join(PUBLIC, rel));
@@ -52,7 +67,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => console.log(`Golden VB API running on http://localhost:${PORT}`));
 
 // expire pencil bookings every minute
-import db from "./db.js";
 setInterval(() => {
   db.reservations.expireHolds(new Date().toISOString())
     .then((n) => { if (n) console.log(`Expired ${n} unpaid holds`); })

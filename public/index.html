@@ -3,45 +3,177 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Golden VB — Online Booking & Ocular Visit Scheduling</title>
+  <title>Golden Villa Private Resort — Malolos, Bulacan</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀</text></svg>" />
   <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Asap:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Asap:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    .landing { background: #FBF7EE; }
+    .landing-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 32px; position: sticky; top: 0; z-index: 20;
+      background: rgba(251,247,238,0.94); backdrop-filter: blur(8px);
+      border-bottom: 1px solid #eadfc9;
+    }
+    .landing-nav .brand-row { display: flex; align-items: center; gap: 10px; font-family: Fraunces, serif; font-size: 18px; color: #2E5D46; }
+    .landing-nav .brand-row .sun { font-size: 22px; color: #B8912F; }
+    .landing-nav nav a { margin-left: 22px; color: #5c4a2a; text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .landing-nav nav a:hover { color: #B8912F; }
+    .landing-nav nav .btn-login { padding: 8px 16px; border: 1.5px solid #2E5D46; border-radius: 999px; color: #2E5D46 !important; font-weight: 600; }
+    .landing-nav nav .btn-login:hover { background: #2E5D46; color: #fff !important; }
+    .landing-hero { max-width: 1180px; margin: 0 auto; padding: 72px 32px 60px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; }
+    .landing-hero .hero-copy .kicker { font-size: 12px; letter-spacing: 3px; color: #B8912F; font-weight: 600; text-transform: uppercase; margin-bottom: 18px; }
+    .landing-hero h1 { font-family: Fraunces, serif; font-weight: 500; font-size: 54px; line-height: 1.08; color: #2b2416; margin: 0 0 20px; letter-spacing: -0.5px; }
+    .landing-hero h1 em { color: #B8912F; font-style: italic; }
+    .landing-hero .sub { font-size: 17px; color: #6b5c3f; line-height: 1.65; margin: 0 0 30px; max-width: 500px; }
+    .landing-hero .cta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .landing-hero .btn-cta { padding: 14px 28px; border-radius: 999px; font-weight: 700; font-size: 15px; border: none; cursor: pointer; font-family: inherit; transition: transform .15s ease, background .15s ease; }
+    .landing-hero .btn-cta:hover { transform: translateY(-1px); }
+    .landing-hero .btn-cta.primary { background: #B8912F; color: #fff; }
+    .landing-hero .btn-cta.primary:hover { background: #a17b22; }
+    .landing-hero .btn-cta.ghost { background: transparent; border: 1.5px solid #2E5D46; color: #2E5D46; }
+    .landing-hero .btn-cta.ghost:hover { background: #2E5D46; color: #fff; }
+    .landing-hero .hero-image { position: relative; border-radius: 22px; overflow: hidden; box-shadow: 0 24px 50px rgba(184,145,47,0.20); aspect-ratio: 4 / 5; }
+    .landing-hero .hero-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .landing-hero .hero-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 60%, rgba(43,36,22,0.18)); pointer-events: none; }
+    .landing-section { padding: 70px 32px; max-width: 1180px; margin: 0 auto; }
+    .landing-section .eyebrow { font-size: 12px; letter-spacing: 3px; color: #B8912F; font-weight: 600; text-transform: uppercase; margin-bottom: 12px; }
+    .landing-section h2 { font-family: Fraunces, serif; font-weight: 500; font-size: 36px; color: #2b2416; margin: 0 0 24px; letter-spacing: -0.3px; }
+    .landing-section p { font-size: 16px; line-height: 1.75; color: #4a3f2b; margin: 0 0 16px; }
+    .about-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 48px; align-items: start; }
+    .about-facts { background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 4px 20px rgba(184,145,47,0.08); border: 1px solid #eadfc9; }
+    .about-facts .fact { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0e7d2; font-size: 14px; gap: 12px; }
+    .about-facts .fact:last-child { border-bottom: none; }
+    .about-facts .fact .k { color: #8a7a55; font-weight: 500; white-space: nowrap; }
+    .about-facts .fact .v { color: #2b2416; font-weight: 600; text-align: right; }
+    .about-facts .fact .v a { color: #B8912F; text-decoration: none; }
+    .about-facts .fact .v a:hover { text-decoration: underline; }
+    .about-banner { margin-top: 40px; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 30px rgba(184,145,47,0.12); }
+    .about-banner img { width: 100%; height: 420px; object-fit: cover; display: block; }
+    .pkg-showcase { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 16px; }
+    .pkg-showcase .p { background: #fff; border-radius: 20px; overflow: hidden; border: 1px solid #eadfc9; box-shadow: 0 4px 20px rgba(184,145,47,0.06); transition: transform .15s ease, box-shadow .15s ease; }
+    .pkg-showcase .p:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(184,145,47,0.16); }
+    .pkg-showcase .p .thumb { width: 100%; height: 180px; object-fit: cover; display: block; }
+    .pkg-showcase .p .body { padding: 22px 22px 26px; text-align: center; }
+    .pkg-showcase .p .name { font-family: Fraunces, serif; font-size: 20px; color: #2b2416; margin: 0 0 6px; }
+    .pkg-showcase .p .tag { font-size: 13px; color: #8a7a55; margin: 0 0 14px; }
+    .pkg-showcase .p .price { font-size: 22px; color: #B8912F; font-weight: 700; margin: 0 0 4px; }
+    .pkg-showcase .p .hours { font-size: 12px; color: #8a7a55; }
+    .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 16px; }
+    .how-grid .step .n { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 999px; background: #B8912F; color: #fff; font-weight: 700; font-size: 16px; margin-bottom: 14px; }
+    .how-grid .step h3 { font-family: Fraunces, serif; font-weight: 500; font-size: 20px; color: #2b2416; margin: 0 0 8px; }
+    .how-grid .step p { font-size: 14px; color: #6b5c3f; line-height: 1.65; }
+    .tour-wrap { margin-top: 16px; border-radius: 20px; overflow: visible; background: transparent; }
+    .tour-wrap video { width: 100%; display: block; background: #000; max-height: 620px; object-fit: contain; border-radius: 20px; box-shadow: 0 20px 50px rgba(43,36,22,0.22); }
+    .find-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 40px; align-items: stretch; margin-top: 8px; }
+    .find-sign { border-radius: 20px; overflow: hidden; box-shadow: 0 8px 30px rgba(184,145,47,0.12); }
+    .find-sign img { width: 100%; height: 100%; min-height: 340px; object-fit: cover; display: block; }
+    .find-map { border-radius: 20px; overflow: hidden; border: 1px solid #eadfc9; box-shadow: 0 8px 30px rgba(184,145,47,0.12); }
+    .find-map iframe { display: block; width: 100%; height: 100%; min-height: 340px; border: 0; }
+    .find-actions { margin-top: 28px; text-align: center; }
+    .landing-footer { padding: 44px 32px 60px; text-align: center; color: #8a7a55; font-size: 13px; border-top: 1px solid #eadfc9; margin-top: 40px; line-height: 1.9; }
+    .landing-footer a { color: #B8912F; text-decoration: none; }
+    .landing-footer a:hover { text-decoration: underline; }
+    @media (max-width: 900px) {
+      .landing-hero { grid-template-columns: 1fr; gap: 40px; padding-top: 48px; }
+      .landing-hero h1 { font-size: 40px; }
+      .landing-hero .hero-image { aspect-ratio: 5 / 4; }
+      .about-grid, .pkg-showcase, .how-grid, .find-grid { grid-template-columns: 1fr; }
+      .about-banner img { height: 260px; }
+      .find-sign img, .find-map iframe { min-height: 260px; }
+    }
+    @media (max-width: 600px) {
+      .landing-nav { padding: 14px 20px; }
+      .landing-nav nav a[data-scroll] { display: none; }
+      .landing-nav nav a { margin-left: 12px; font-size: 13px; }
+      .landing-hero { padding: 40px 20px; }
+      .landing-hero h1 { font-size: 34px; }
+      .landing-section { padding: 52px 20px; }
+      .landing-section h2 { font-size: 28px; }
+    }
+    .mgr-cal-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 900px) { .mgr-cal-wrap { grid-template-columns: 1fr; } }
+    .mgr-cal-wrap .card { padding: 18px; }
+
+    /* OTP entry */
+    .otp-input {
+      font-family: ui-monospace, monospace;
+      font-size: 26px;
+      letter-spacing: 12px;
+      text-align: center;
+      padding: 14px;
+    }
+    .otp-note { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 4px; }
+    .otp-resend-row {
+      display: flex; justify-content: center; gap: 12px; margin-top: 6px;
+      font-size: 12px;
+    }
+
+    /* mini player */
+    .tour-video-slot { position: relative; transition: all .3s ease; }
+    .tour-mini-close {
+      display: none; position: absolute; top: 8px; right: 8px;
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: rgba(0,0,0,0.75); color: #fff; font-size: 13px;
+      font-weight: 700; cursor: pointer; z-index: 10; line-height: 1; padding: 0;
+    }
+    .tour-mini-close:hover { background: rgba(0,0,0,0.95); }
+    .tour-video-slot.mini {
+      position: fixed; bottom: 24px; right: 24px;
+      height: 300px; width: auto; max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 48px); z-index: 999;
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 20px 50px -10px rgba(43,36,22,0.55), 0 0 0 1px rgba(184,145,47,0.35);
+      background: #000;
+      animation: miniSlideIn .3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+    @keyframes miniSlideIn { from { opacity: 0; transform: translateY(16px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .tour-video-slot.mini video { height: 100%; width: auto; max-height: none; object-fit: contain; border-radius: 16px; display: block; box-shadow: none; }
+    .tour-video-slot.mini .tour-mini-close { display: block; }
+    .tour-slot-placeholder { border-radius: 20px; background: #000; opacity: 0; pointer-events: none; }
+    @media (max-width: 600px) { .tour-video-slot.mini { height: 200px; bottom: 12px; right: 12px; } }
+  </style>
 </head>
 <body>
 
-  <!-- ============ LOGIN SCREEN ============ -->
-  <div id="login-screen" class="login-screen">
+  <!-- LOGIN SCREEN -->
+  <div id="login-screen" class="login-screen hidden">
     <div class="login-box">
       <div class="login-logo">☀</div>
       <h1 class="login-title">Golden Villa</h1>
       <p class="login-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
 
-      <!-- CUSTOMER: one click -->
       <button type="button" id="guest-btn" class="btn btn-gold btn-full" style="margin-bottom:6px">
         Continue as Customer →
       </button>
       <p class="login-hint">Book instantly — no account needed.</p>
-
       <p class="login-divider">or log in as staff</p>
 
-      <!-- STAFF: real login with role selector -->
       <form id="login-form" class="login-form">
-        <select id="login-role" required>
-          <option value="" disabled selected>Select your role…</option>
-          <option value="admin">Admin</option>
-          <option value="caretaker">Caretaker</option>
-          <option value="owner">Owner</option>
-        </select>
         <input type="email" id="login-email" placeholder="Email" required />
         <input type="password" id="login-password" placeholder="Password" required />
         <p id="login-error" class="error hidden"></p>
         <button type="submit" id="login-btn" class="btn btn-gold btn-full">Log in</button>
       </form>
 
-      <!-- CARETAKER SELF-REGISTRATION -->
-      <button type="button" id="show-register" class="link-btn" style="margin-top:10px">
-        New caretaker? Register here
-      </button>
+      <!-- OTP SCREEN -->
+      <form id="otp-form" class="login-form hidden" style="margin-top:10px">
+        <p class="login-hint" style="margin-bottom:6px">Enter the 6-digit code we sent you</p>
+        <p class="otp-note" id="otp-sent-to"></p>
+        <input type="text" id="otp-code" inputmode="numeric" maxlength="6" class="otp-input" placeholder="······" autocomplete="one-time-code" required />
+        <p id="otp-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-gold btn-full">Verify code</button>
+        <div class="otp-resend-row">
+          <button type="button" id="otp-resend" class="link-btn">Resend code</button>
+          <button type="button" id="otp-back" class="link-btn" style="color:#8a7a55">← Back to login</button>
+        </div>
+        <p id="otp-info" class="otp-note"></p>
+      </form>
+
+      <button type="button" id="show-register" class="link-btn" style="margin-top:10px">New caretaker? Register here</button>
+      <button type="button" id="show-invite" class="link-btn" style="margin-top:4px">Have an invite code? Apply here</button>
+      <button type="button" id="back-to-landing" class="link-btn" style="margin-top:16px; color:#8a7a55;">← Back to homepage</button>
 
       <form id="register-form" class="login-form hidden" style="margin-top:10px">
         <p class="login-hint" style="margin-bottom:6px">Caretaker registration</p>
@@ -53,182 +185,395 @@
         <button type="submit" class="btn btn-green btn-full">Create caretaker account</button>
         <button type="button" id="cancel-register" class="link-btn">Cancel</button>
       </form>
+
+      <form id="invite-form" class="login-form hidden" style="margin-top:10px">
+        <p class="login-hint" style="margin-bottom:6px">Apply with your invite code</p>
+        <input type="text"     id="inv-code"     placeholder="Invite code (e.g. GVB-7K2M-9X)" required />
+        <input type="text"     id="inv-name"     placeholder="Full name" required />
+        <input type="email"    id="inv-email"    placeholder="Email (must match the invite)" required />
+        <input type="password" id="inv-password" placeholder="Choose a password (min 6 chars)" required />
+        <input type="text"     id="inv-phone"    placeholder="Phone (optional)" />
+        <p id="invite-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-green btn-full">Apply for staff access</button>
+        <button type="button" id="cancel-invite" class="link-btn">Cancel</button>
+      </form>
     </div>
   </div>
 
-  <!-- ============ APP SHELL ============ -->
-  <div id="app" class="hidden">
+  <div id="app">
+    <section id="view-landing" class="view landing">
+      <div class="landing-nav">
+        <div class="brand-row"><span class="sun">☀</span><span>Golden Villa</span></div>
+        <nav>
+          <a data-scroll="about">About</a>
+          <a data-scroll="packages">Packages</a>
+          <a data-scroll="how">How it works</a>
+          <a data-scroll="tour">Tour</a>
+          <a data-scroll="find-us">Find us</a>
+          <a id="nav-login" class="btn-login">Log in</a>
+        </nav>
+      </div>
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-sun">☀</span>
-        <div>
-          <p class="brand-name">Golden Villa</p>
-          <p class="brand-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
+      <div class="landing-hero">
+        <div class="hero-copy">
+          <p class="kicker">Malolos, Bulacan · Private Resort</p>
+          <h1>Your golden day, <em>reserved</em> in minutes.</h1>
+          <p class="sub">One booking per day. Real-time availability. A deposit voucher in hand before you leave the house.</p>
+          <div class="cta-row">
+            <button class="btn-cta primary" id="cta-book">Book Now →</button>
+            <button class="btn-cta ghost" data-scroll="about">Learn More</button>
+          </div>
         </div>
-      </div>
-      <nav class="role-tabs" id="role-tabs">
-        <button data-role="customer" class="tab active">Customer</button>
-        <button data-role="admin" class="tab">Administrator</button>
-        <button data-role="caretaker" class="tab">Caretaker</button>
-        <button data-role="owner" class="tab">Owner</button>
-      </nav>
-      <div class="user-chip">
-        <span id="user-name"></span>
-        <button id="logout-btn" class="logout">Log out</button>
-      </div>
-    </header>
-
-    <!-- CUSTOMER VIEW -->
-    <section id="view-customer" class="view">
-      <div class="hero">
-        <p class="hero-kicker">ONLINE BOOKING & OCULAR VISIT SCHEDULING</p>
-        <h2 class="hero-title">Your golden day, <em>reserved</em> in minutes.</h2>
-        <p class="hero-sub">One booking per day. Real-time availability. A voucher in hand before you leave the house.</p>
-      </div>
-
-      <div class="steps" id="steps"></div>
-
-      <div class="step-panel" id="step-0">
-        <h3 class="panel-title">Choose your stay</h3>
-        <p class="panel-sub">Three ways to spend a golden day in Malolos.</p>
-        <div class="pkg-grid" id="pkg-grid"></div>
-      </div>
-
-      <div class="step-panel hidden" id="step-1">
-        <h3 class="panel-title">Pick a date</h3>
-        <p class="panel-sub">Live from the reservation database. One booking per day.</p>
-        <div class="cal-wrap">
-          <div class="card" id="cal-1"></div>
-          <div class="card" id="cal-2"></div>
-        </div>
-        <div class="card guests-row">
-          <span class="label">Guests</span>
-          <button id="g-minus" class="round-btn">−</button>
-          <span id="g-count" class="g-count">10</span>
-          <button id="g-plus" class="round-btn">+</button>
-          <span class="muted" id="g-max"></span>
-          <span id="picked-date" class="picked"></span>
+        <div class="hero-image">
+          <img src="GoldenVB.jpg" alt="Golden Villa private resort exterior" />
         </div>
       </div>
 
-      <div class="step-panel hidden" id="step-2">
-        <h3 class="panel-title">Who's coming?</h3>
-        <p class="panel-sub">Fill in your details so we can prepare your voucher.</p>
-        <div class="form-col">
-          <label>Full name <input id="f-name" /></label>
-          <label>Mobile number <input id="f-phone" /></label>
-          <label>Email <input id="f-email" /></label>
+      <section id="about" class="landing-section">
+        <p class="eyebrow">About Us</p>
+        <h2>A private escape in the heart of Malolos.</h2>
+        <div class="about-grid">
+          <div>
+            <p>Golden Villa is a private resort in Malolos, Bulacan, built for families, barkadas, and small celebrations that deserve a place of their own. One group per day, no strangers sharing your pool, no loud crowd you didn't invite.</p>
+            <p>The villa is surrounded by gardens and open sky, with a full-size pool, shaded lounging areas, and enough room for up to thirty guests. Whether it's a birthday, a reunion, or just a weekend away from Manila, the space is yours for the day — or the night.</p>
+            <p>We opened Golden Villa to share a place we've always loved. Every booking is handled personally — you'll talk to us from your first inquiry to the moment you arrive at the gate.</p>
+          </div>
+          <aside class="about-facts">
+            <div class="fact"><span class="k">Address</span><span class="v">Malolos, Bulacan</span></div>
+            <div class="fact">
+              <span class="k">Directions</span>
+              <span class="v"><a href="https://www.google.com/maps/place/Golden+Villa+Private+Resort/@14.8833013,120.8166192,17z" target="_blank" rel="noopener">Open in Google Maps →</a></span>
+            </div>
+            <div class="fact"><span class="k">Capacity</span><span class="v">Up to 30 guests</span></div>
+            <div class="fact"><span class="k">Booking</span><span class="v">One group per day</span></div>
+            <div class="fact"><span class="k">Deposit</span><span class="v">50% to hold date</span></div>
+            <div class="fact"><span class="k">Check-in</span><span class="v">By arrangement</span></div>
+          </aside>
         </div>
-      </div>
+        <div class="about-banner"><img src="Lobby.jpeg" alt="Golden Villa covered hall with dining area" /></div>
+      </section>
 
-      <div class="step-panel hidden" id="step-3">
-        <h3 class="panel-title">Secure it with a deposit</h3>
-        <p class="panel-sub" id="deposit-line"></p>
-        <div class="hold-banner">⏱ This date is held for you for <b id="hold-timer" class="mono"></b>. After that, it goes back on the calendar.</div>
-        <div class="card pay-channels">
-          <p class="label">SEND DEPOSIT VIA</p>
-          <span class="chip chip-green">GCash · 0917 555 0101</span>
-          <span class="chip chip-gold">BDO · 0044 2210 8890</span>
+      <section id="packages" class="landing-section">
+        <p class="eyebrow">Our Packages</p>
+        <h2>Three ways to spend a golden day.</h2>
+        <div class="pkg-showcase">
+          <div class="p"><img class="thumb" src="Pool.jpeg" alt="Paradise Day Tour" /><div class="body"><p class="name">Paradise Day Tour</p><p class="tag">Sun up to sun down</p><p class="price">₱5,500</p><p class="hours">8:00 AM – 5:00 PM</p></div></div>
+          <div class="p"><img class="thumb" src="inside.jpeg" alt="Colorful Overnight" /><div class="body"><p class="name">Colorful Overnight</p><p class="tag">Under the string lights</p><p class="price">₱6,500</p><p class="hours">6:00 PM – 6:00 AM</p></div></div>
+          <div class="p"><img class="thumb" src="Kitchen.jpeg" alt="Happy Stay" /><div class="body"><p class="name">Happy Stay</p><p class="tag">The full golden weekend</p><p class="price">₱12,500</p><p class="hours">Up to 22 hours</p></div></div>
         </div>
-        <button id="upload-proof" class="upload-box">
-          <span id="upload-text">📤 Upload a photo of your deposit slip or GCash receipt</span>
-        </button>
-      </div>
+      </section>
 
-      <div class="step-panel hidden" id="step-4">
-        <h3 class="panel-title center" id="voucher-greet"></h3>
-        <p class="panel-sub center">Your booking is in the queue for the admin to verify. Here's your reference.</p>
-        <div id="voucher-slot"></div>
-        <p class="center"><button id="book-again" class="link-btn">Book another date</button></p>
-      </div>
-
-      <div class="step-nav" id="step-nav">
-        <button id="back-btn" class="btn btn-ghost">← Back</button>
-        <button id="next-btn" class="btn btn-gold">Continue →</button>
-      </div>
-      <p id="customer-error" class="error hidden"></p>
-
-      <div class="card visit-card">
-        <h3 class="panel-title">👁 Schedule an ocular visit</h3>
-        <p class="panel-sub">Tour the villa before you commit. Only on unreserved dates.</p>
-        <div class="visit-row">
-          <label>Date <input type="date" id="visit-date" /></label>
-          <label>Time
-            <select id="visit-time">
-              <option>9:00 AM</option><option>10:00 AM</option><option>1:00 PM</option>
-              <option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option>
-            </select>
-          </label>
-          <button id="visit-book" class="btn btn-green">Book visit</button>
+      <section id="how" class="landing-section">
+        <p class="eyebrow">How It Works</p>
+        <h2>Three steps from browsing to booked.</h2>
+        <div class="how-grid">
+          <div class="step"><span class="n">1</span><h3>Pick a date</h3><p>Our live calendar shows what's open. One group per day — if you see it, it's yours to hold.</p></div>
+          <div class="step"><span class="n">2</span><h3>Send a 50% deposit</h3><p>GCash or bank transfer. Upload your receipt and your date is locked in for admin review.</p></div>
+          <div class="step"><span class="n">3</span><h3>Show up and enjoy</h3><p>You'll receive a voucher with your reference number. Present it at the gate and the place is yours.</p></div>
         </div>
-        <p id="visit-msg" class="visit-msg"></p>
-        <div id="visit-list" class="visit-list"></div>
-      </div>
+      </section>
+
+      <section id="tour" class="landing-section">
+        <p class="eyebrow">Take a Tour</p>
+        <h2>See the villa before you book.</h2>
+        <p style="max-width: 620px;">A quick walk through the grounds — the pool, the covered hall, the kitchen, and the sign you'll be looking for at the gate.</p>
+        <div class="tour-wrap" id="tour-wrap">
+          <div class="tour-video-slot" id="tour-slot">
+            <video id="tour-video" controls muted autoplay loop playsinline preload="metadata" poster="GoldenVB.jpeg">
+              <source src="GVBtour.mp4" type="video/mp4" />
+              Your browser doesn't support video playback.
+              <a href="GVBtour.mp4">Download the tour video</a>.
+            </video>
+            <button type="button" id="tour-mini-close" class="tour-mini-close" aria-label="Close mini player">✕</button>
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:32px;">
+          <button class="btn-cta primary" id="cta-book-2" style="padding:14px 30px; border-radius:999px; border:none; background:#B8912F; color:#fff; font-weight:700; font-size:15px; cursor:pointer; font-family:inherit;">Book Now →</button>
+        </div>
+      </section>
+
+      <section id="find-us" class="landing-section">
+        <p class="eyebrow">Find Us</p>
+        <h2>Golden Villa Private Resort</h2>
+        <p style="max-width: 620px;">About an hour's drive from Metro Manila via NLEX. Look for the gold-lettered sign at the gate — tap the map to open directions.</p>
+        <div class="find-grid">
+          <div class="find-sign"><img src="inside.jpeg" alt="Golden Villa sign at the gate" /></div>
+          <div class="find-map">
+            <iframe src="https://www.google.com/maps?q=14.8833013,120.8166192&z=17&output=embed" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Map of Golden Villa Private Resort"></iframe>
+          </div>
+        </div>
+        <div class="find-actions">
+          <a class="btn-cta primary" href="https://www.google.com/maps/place/Golden+Villa+Private+Resort/@14.8833013,120.8166192,17z" target="_blank" rel="noopener" style="display:inline-block; padding:14px 30px; border-radius:999px; background:#B8912F; color:#fff; font-weight:700; font-size:15px; text-decoration:none;">Get Directions →</a>
+        </div>
+      </section>
+
+      <footer class="landing-footer">
+        Golden Villa Private Resort · Malolos, Bulacan<br>
+        <a href="https://www.google.com/maps/place/Golden+Villa+Private+Resort/@14.8833013,120.8166192,17z" target="_blank" rel="noopener">14.8833° N, 120.8166° E</a>
+        <br>© 2026 · Website by Capua, Del Rosario, Palabay
+      </footer>
     </section>
 
-    <!-- ADMIN VIEW -->
-    <section id="view-admin" class="view hidden">
-      <div class="view-head">
-        <div>
-          <h3 class="panel-title big">Reservation queue</h3>
-          <p class="panel-sub">Live from the reservations table. Refreshes every 5 seconds.</p>
-        </div>
-        <span class="chip chip-gold" id="verify-count"></span>
-      </div>
-      <p id="admin-error" class="error hidden"></p>
-      <div class="admin-grid">
-        <div id="queue-list" class="queue-list"></div>
-        <div id="queue-detail" class="card detail-panel"></div>
-      </div>
-    </section>
+    <div id="app-shell" class="hidden">
 
-    <!-- CARETAKER VIEW -->
-    <section id="view-caretaker" class="view hidden">
-      <h3 class="panel-title big">Today at the villa</h3>
-      <p class="panel-sub" id="today-label"></p>
-      <p id="caretaker-error" class="error hidden"></p>
-      <div class="caretaker-grid">
-        <div class="card">
-          <p class="label">🚪 ARRIVALS</p>
-          <div id="arrivals-list"></div>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-sun">☀</span>
+          <div>
+            <p class="brand-name">Golden Villa</p>
+            <p class="brand-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
+          </div>
         </div>
-        <div class="card">
-          <p class="label">👁 OCULAR VISITS</p>
-          <div id="caretaker-visits"></div>
+        <nav class="role-tabs" id="role-tabs">
+          <button data-role="customer" class="tab active">Customer</button>
+          <button data-role="admin" class="tab">Administrator</button>
+          <button data-role="manager" class="tab">Manager</button>
+          <button data-role="caretaker" class="tab">Caretaker</button>
+        </nav>
+        <div class="user-chip">
+          <span id="user-name"></span>
+          <button id="logout-btn" class="logout">Log out</button>
         </div>
-        <div class="card">
-          <p class="label">📅 WALK-IN QUICK CHECK</p>
-          <p class="panel-sub">Someone at the gate? Check the live calendar first.</p>
-          <div id="walkin-days" class="walkin-days"></div>
-          <div id="walkin-result"></div>
-        </div>
-      </div>
-    </section>
+      </header>
 
-    <!-- OWNER VIEW -->
-    <section id="view-owner" class="view hidden">
-      <h3 class="panel-title big">How the villa is doing</h3>
-      <p class="panel-sub">Live aggregates from the reservation database.</p>
-      <p id="owner-error" class="error hidden"></p>
-      <div class="stat-grid" id="stat-grid"></div>
-      <div class="owner-grid">
-        <div class="card">
-          <p class="label">REVENUE BY MONTH</p>
-          <p class="panel-sub">₱ thousands · 2026 approved + pending</p>
-          <canvas id="monthly-chart" width="520" height="220"></canvas>
+      <section id="view-customer" class="view">
+        <div class="hero">
+          <p class="hero-kicker">ONLINE BOOKING &amp; OCULAR VISIT SCHEDULING</p>
+          <h2 class="hero-title">Your golden day, <em>reserved</em> in minutes.</h2>
+          <p class="hero-sub">One booking per day. Real-time availability. A voucher in hand before you leave the house.</p>
         </div>
-        <div class="card">
-          <p class="label">PACKAGE SHARE</p>
-          <p class="panel-sub">approved bookings by package</p>
-          <div id="pkg-share"></div>
-          <p class="label" style="margin-top:16px">UPCOMING GUESTS</p>
-          <div id="upcoming-list"></div>
-        </div>
-      </div>
-    </section>
 
-    <footer class="foot">Golden VB · System Analysis &amp; Design case study · Capua, Del Rosario, Palabay · Sept 2026</footer>
+        <div class="steps" id="steps"></div>
+
+        <div class="step-panel" id="step-0">
+          <h3 class="panel-title">Choose your stay</h3>
+          <p class="panel-sub">Three ways to spend a golden day in Malolos.</p>
+          <div class="pkg-grid" id="pkg-grid"></div>
+        </div>
+
+        <div class="step-panel hidden" id="step-1">
+          <h3 class="panel-title">Pick a date</h3>
+          <p class="panel-sub">Live from the reservation database. One booking per day.</p>
+          <div class="cal-wrap">
+            <div class="card" id="cal-1"></div>
+            <div class="card" id="cal-2"></div>
+          </div>
+          <div class="card guests-row">
+            <span class="label">Guests</span>
+            <button id="g-minus" class="round-btn">−</button>
+            <span id="g-count" class="g-count">10</span>
+            <button id="g-plus" class="round-btn">+</button>
+            <span class="muted" id="g-max"></span>
+            <span id="picked-date" class="picked"></span>
+          </div>
+        </div>
+
+        <div class="step-panel hidden" id="step-2">
+          <h3 class="panel-title">Who's coming?</h3>
+          <p class="panel-sub">Fill in your details so we can prepare your voucher.</p>
+          <div class="form-col">
+            <label>Full name <input id="f-name" /></label>
+            <label>Mobile number <input id="f-phone" /></label>
+            <label>Email <input id="f-email" /></label>
+          </div>
+        </div>
+
+        <div class="step-panel hidden" id="step-3">
+          <h3 class="panel-title">Secure it with a deposit</h3>
+          <p class="panel-sub" id="deposit-line"></p>
+          <div class="hold-banner">⏱ This date is held for you for <b id="hold-timer" class="mono"></b>. After that, it goes back on the calendar.</div>
+          <div class="card pay-channels">
+            <p class="label">SEND DEPOSIT VIA</p>
+            <span class="chip chip-green">GCash · 0917 555 0101</span>
+            <span class="chip chip-gold">BDO · 0044 2210 8890</span>
+          </div>
+          <button id="upload-proof" class="upload-box">
+            <span id="upload-text">📤 Upload a photo of your deposit slip or GCash receipt</span>
+          </button>
+        </div>
+
+        <div class="step-panel hidden" id="step-4">
+          <h3 class="panel-title center" id="voucher-greet"></h3>
+          <p class="panel-sub center">Your booking is in the queue for the admin to verify. Here's your reference.</p>
+          <div id="voucher-slot"></div>
+          <p class="center"><button id="book-again" class="link-btn">Book another date</button></p>
+        </div>
+
+        <div class="step-nav" id="step-nav">
+          <button id="back-btn" class="btn btn-ghost">← Back</button>
+          <button id="next-btn" class="btn btn-gold">Continue →</button>
+        </div>
+        <p id="customer-error" class="error hidden"></p>
+
+        <div class="card visit-card">
+          <h3 class="panel-title">👁 Schedule an ocular visit</h3>
+          <p class="panel-sub">Tour the villa before you commit. Only on unreserved dates.</p>
+          <div class="visit-row">
+            <label>Date <input type="date" id="visit-date" /></label>
+            <label>Time
+              <select id="visit-time">
+                <option>9:00 AM</option><option>10:00 AM</option><option>1:00 PM</option>
+                <option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option>
+              </select>
+            </label>
+            <button id="visit-book" class="btn btn-green">Book visit</button>
+          </div>
+          <p id="visit-msg" class="visit-msg"></p>
+          <div id="visit-list" class="visit-list"></div>
+        </div>
+      </section>
+
+      <section id="view-admin" class="view hidden">
+        <div class="view-head">
+          <div>
+            <h3 class="panel-title big">Reservation queue</h3>
+            <p class="panel-sub">Live from the reservations table. Refreshes every 5 seconds.</p>
+          </div>
+          <span class="chip chip-gold" id="verify-count"></span>
+        </div>
+        <p id="admin-error" class="error hidden"></p>
+        <div class="admin-grid">
+          <div id="queue-list" class="queue-list"></div>
+          <div id="queue-detail" class="card detail-panel"></div>
+        </div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Business overview</h3>
+        <p class="panel-sub">Live aggregates from the reservation database.</p>
+        <p id="owner-error" class="error hidden"></p>
+        <div class="stat-grid" id="stat-grid"></div>
+        <div class="owner-grid">
+          <div class="card">
+            <p class="label">REVENUE BY MONTH</p>
+            <p class="panel-sub">₱ thousands · 2026 approved + pending</p>
+            <canvas id="monthly-chart" width="520" height="220"></canvas>
+          </div>
+          <div class="card">
+            <p class="label">PACKAGE SHARE</p>
+            <p class="panel-sub">approved bookings by package</p>
+            <div id="pkg-share"></div>
+            <p class="label" style="margin-top:16px">UPCOMING GUESTS</p>
+            <div id="upcoming-list"></div>
+          </div>
+        </div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Invite new staff</h3>
+        <p class="panel-sub">Create a one-time invite code. Send it to the person — only that email can use it.</p>
+        <form id="invite-create-form" class="card staff-form">
+          <div class="form-col">
+            <label>Their email  <input id="new-inv-email" type="email" placeholder="newperson@goldenvb.ph" required /></label>
+            <label>Their name   <input id="new-inv-name"  placeholder="For your reference (optional)" /></label>
+            <label>Role
+              <select id="new-inv-role" required>
+                <option value="caretaker">Caretaker</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-green">Generate invite code</button>
+          <p id="invite-create-msg" class="muted"></p>
+        </form>
+
+        <div class="card" style="margin-top:16px">
+          <p class="label">ALL INVITES</p>
+          <div id="invite-list"></div>
+        </div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Schedule records</h3>
+        <p class="panel-sub">Complete audit log of every reservation — bookings, deposits, ocular visits, and manager completions.</p>
+        <div id="admin-history-summary"></div>
+        <div class="card">
+          <div id="history-filter" class="history-filters"></div>
+          <div id="admin-history"></div>
+        </div>
+      </section>
+
+      <section id="view-manager" class="view hidden">
+        <div class="view-head">
+          <div>
+            <h3 class="panel-title big">Operations</h3>
+            <p class="panel-sub">Live queue, schedule, and payments. Refreshes every 5 seconds.</p>
+          </div>
+          <span class="chip chip-gold" id="mgr-pending-count"></span>
+        </div>
+        <p id="manager-error" class="error hidden"></p>
+
+        <div class="stat-grid" id="mgr-stat-grid"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Log a walk-in booking</h3>
+        <p class="panel-sub">Someone at the gate without a reservation? Create the booking here — it's approved on the spot.</p>
+        <form id="walkin-form" class="card staff-form">
+          <div class="form-col">
+            <label>Guest name   <input id="wi-name" required placeholder="Juan Dela Cruz" /></label>
+            <label>Mobile number <input id="wi-phone" required placeholder="0917 555 0101" /></label>
+            <label>Email (optional) <input id="wi-email" type="email" placeholder="guest@email.com" /></label>
+            <label>Package
+              <select id="wi-package" required></select>
+            </label>
+            <label>Date <input id="wi-date" type="date" required /></label>
+            <label>Guests <input id="wi-guests" type="number" min="1" value="10" required /></label>
+            <label>Deposit amount (optional — defaults to 50%) <input id="wi-deposit" type="number" min="0" placeholder="e.g. 2750" /></label>
+          </div>
+          <button type="submit" class="btn btn-green">Create walk-in booking</button>
+          <p id="walkin-msg" class="muted"></p>
+        </form>
+
+        <h3 class="panel-title big" style="margin-top:44px">Existing schedule</h3>
+        <p class="panel-sub">Full calendar of every booking and ocular visit. Click any date to see the details.</p>
+        <div class="mgr-cal-wrap" id="mgr-cal-wrap">
+          <div class="card" id="mgr-cal-1"></div>
+          <div class="card" id="mgr-cal-2"></div>
+          <div class="card" id="mgr-cal-3"></div>
+        </div>
+        <div class="card" id="mgr-calendar-detail" style="margin-top:16px"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Reservation queue</h3>
+        <p class="panel-sub">Every booking that isn't cancelled or rejected.</p>
+        <div class="admin-grid">
+          <div id="mgr-queue-list" class="queue-list"></div>
+          <div id="mgr-queue-detail" class="card detail-panel"></div>
+        </div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Upcoming schedule</h3>
+        <p class="panel-sub">Approved bookings in the next 30 days.</p>
+        <div class="card" id="mgr-schedule-list"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Payments</h3>
+        <p class="panel-sub">Every deposit on file. Verify pending ones from the queue above.</p>
+        <div class="card" id="mgr-payments-list"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Caretakers</h3>
+        <p class="panel-sub">Staff on the ground.</p>
+        <div class="card" id="mgr-caretakers-list"></div>
+      </section>
+
+      <section id="view-caretaker" class="view hidden">
+        <h3 class="panel-title big">Today at the villa</h3>
+        <p class="panel-sub" id="today-label"></p>
+        <p id="caretaker-error" class="error hidden"></p>
+
+        <div class="caretaker-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr))">
+          <div class="card">
+            <p class="label">🚪 ARRIVALS · TODAY</p>
+            <div id="arrivals-list"></div>
+            <p class="label" style="margin-top:20px">🌅 ARRIVALS · TOMORROW</p>
+            <div id="arrivals-tomorrow"></div>
+          </div>
+          <div class="card">
+            <p class="label">👁 OCULAR VISITS</p>
+            <div id="caretaker-visits"></div>
+          </div>
+          <div class="card">
+            <p class="label">📅 WALK-IN QUICK CHECK</p>
+            <p class="panel-sub">Someone at the gate? Check the live calendar first.</p>
+            <div id="walkin-days" class="walkin-days"></div>
+            <div id="walkin-result"></div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">GoldenVB Pro · System Analysis &amp; Design case study · Capua, Del Rosario, Palabay · Sept 2026</footer>
+    </div>
   </div>
 
   <script src="app.js"></script>

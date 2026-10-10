@@ -12,7 +12,7 @@ async function loadMaps() {
   };
 }
 
-r.get("/api/reports/summary", requireAuth, requireRole("owner", "admin"), async (req, res) => {
+r.get("/api/reports/summary", requireAuth, requireRole("admin"), async (req, res) => {
   const all = await db.reservations.all();
   const { uMap, pMap } = await loadMaps();
 
@@ -40,13 +40,13 @@ r.get("/api/reports/summary", requireAuth, requireRole("owner", "admin"), async 
       .slice(0, 10)
       .map((x) => ({
         date: x.date,
-        guest: uMap[x.user_id]?.name,
+        guest: x.guest_name || uMap[x.user_id]?.name,
         package: pMap[x.package_id]?.name,
       })),
   });
 });
 
-r.get("/api/reports/monthly", requireAuth, requireRole("owner", "admin"), async (req, res) => {
+r.get("/api/reports/monthly", requireAuth, requireRole("admin"), async (req, res) => {
   const all = await db.reservations.all();
   const { pMap } = await loadMaps();
 
@@ -61,7 +61,7 @@ r.get("/api/reports/monthly", requireAuth, requireRole("owner", "admin"), async 
   res.json({ monthly: Object.values(map).sort((a, b) => a.m.localeCompare(b.m)) });
 });
 
-r.get("/api/reports/by-status", requireAuth, requireRole("owner", "admin"), async (req, res) => {
+r.get("/api/reports/by-status", requireAuth, requireRole("admin"), async (req, res) => {
   const all = await db.reservations.all();
   const map = {};
   for (const x of all) map[x.status] = (map[x.status] || 0) + 1;

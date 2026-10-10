@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "golden-vb-server",
   "version": "1.0.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "seed": "node --env-file=.env seed.js"
   },
   "dependencies": {
-    "mongodb": "^6.0.0"
+    "mongodb": "^6.0.0",
+    "nodemailer": "^10.1.0"
   }
 }
