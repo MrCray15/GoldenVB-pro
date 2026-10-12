@@ -1,5 +1,5 @@
 /* ============================================================
-   Golden VB — frontend logic (with OTP-verified refund lookup)
+   Golden VB — frontend 
    ============================================================ */
 
 const $ = (id) => document.getElementById(id);
@@ -23,11 +23,13 @@ function clearSession() {
   localStorage.removeItem("gvb_user");
 }
 
+const API_BASE = "https://goldenvb-pro-1.onrender.com";
+
 async function api(path, method, body) {
   const options = { method: method || "GET", headers: { "Content-Type": "application/json" } };
   if (getToken()) options.headers["Authorization"] = "Bearer " + getToken();
   if (body) options.body = JSON.stringify(body);
-  const res = await fetch(path, options);
+  const res = await fetch(API_BASE + path, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Something went wrong");
   return data;
