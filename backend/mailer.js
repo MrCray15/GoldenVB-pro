@@ -1,35 +1,36 @@
 /* ============================================================
-   mailer.js — sends OTP + notification emails via Resend API
-   (HTTPS-based, works on Render's free tier)
+   mailer.js — sends OTP + notification emails via Brevo API
+   (HTTPS-based, works on Render's free tier, any recipient)
    ============================================================ */
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.EMAIL_USER || "onboarding@resend.dev";
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM_EMAIL = process.env.EMAIL_USER || "noreply@goldenvb.com";
 const FROM_NAME = process.env.EMAIL_FROM_NAME || "Golden Villa Resort";
 
-const FROM_HEADER = `${FROM_NAME} <${FROM_EMAIL}>`;
+const FROM_HEADER = { name: FROM_NAME, email: FROM_EMAIL };
 
 async function sendEmail({ to, subject, html, text }) {
-  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
+  if (!BREVO_API_KEY) throw new Error("BREVO_API_KEY is not set");
 
-  const res = await fetch("https://api.resend.com/emails", {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + RESEND_API_KEY,
-      "Content-Type": "application/json",
+      "accept": "application/json",
+      "api-key": BREVO_API_KEY,
+      "content-type": "application/json",
     },
     body: JSON.stringify({
-      from: FROM_HEADER,
-      to: [to],
+      sender: FROM_HEADER,
+      to: [{ email: to }],
       subject,
-      html,
-      text: text || undefined,
+      htmlContent: html,
+      textContent: text || undefined,
     }),
   });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    console.error("[mailer] Resend error:", data);
+    console.error("[mailer] Brevo error:", data);
     throw new Error(data.message || data.error || "Failed to send email");
   }
   return data;
@@ -47,20 +48,16 @@ export async function sendOtpEmail(toEmail, code, { name = "", purpose = "login"
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
       <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
       <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px; letter-spacing: 2px;">MALOLOS · BULACAN</p>
-
       <p style="font-size: 15px; margin: 0 0 12px;">Hi ${name || "there"},</p>
       <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px;">${intro} Enter this code to continue:</p>
-
       <div style="text-align: center; padding: 24px; background: #FBF7EE; border-radius: 12px; margin: 24px 0;">
         <p style="font-family: monospace; font-size: 36px; font-weight: 700; letter-spacing: 12px; color: #2b2416; margin: 0;">
           ${code}
         </p>
       </div>
-
       <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px;">
         This code expires in <b>5 minutes</b>. If you didn't request it, you can safely ignore this email.
       </p>
-
       <hr style="border: none; border-top: 1px solid #eadfc9; margin: 24px 0;" />
       <p style="font-size: 11px; color: #8a7a55; text-align: center; margin: 0;">
         Golden Villa Private Resort · Malolos, Bulacan<br>
@@ -108,12 +105,10 @@ export async function sendReservationVoucherEmail(toEmail, reservation) {
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
       <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
       <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px; letter-spacing: 2px;">MALOLOS · BULACAN</p>
-
       <p style="font-size: 15px; margin: 0 0 12px;">Hi ${reservation.guest_name || "there"},</p>
       <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
         Your reservation is confirmed! Here's your voucher:
       </p>
-
       <div style="background: #FBF7EE; border: 1px solid #eadfc9; border-radius: 14px; padding: 20px; margin: 20px 0;">
         <p style="font-family: Georgia, serif; font-size: 18px; color: #B8912F; margin: 0 0 6px;">Reservation Voucher</p>
         <p style="font-family: monospace; font-size: 18px; font-weight: 700; color: #2b2416; margin: 0 0 16px;">
@@ -124,12 +119,10 @@ export async function sendReservationVoucherEmail(toEmail, reservation) {
         <p style="font-size: 14px; margin: 6px 0;"><b>Guests:</b> ${reservation.guests || "—"}</p>
         <p style="font-size: 14px; margin: 6px 0;"><b>Deposit:</b> ₱${Number(reservation.deposit_amount || 0).toLocaleString("en-PH")}</p>
       </div>
-
       <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px;">
         Present this reference at the gate. Need to cancel? Visit our website and use
         <b>Find my booking</b> to request a refund (up to 7 days before your check-in date).
       </p>
-
       <hr style="border: none; border-top: 1px solid #eadfc9; margin: 24px 0;" />
       <p style="font-size: 11px; color: #8a7a55; text-align: center; margin: 0;">
         Golden Villa Private Resort · Malolos, Bulacan<br>
