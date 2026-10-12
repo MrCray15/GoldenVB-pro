@@ -61,12 +61,14 @@ r.get("/api/manager/payments", ...managerOnly, async (req, res) => {
       deposit_proof: x.deposit_proof,
       status: x.status,
       source: x.source,
+      promo_code: x.promo_code || null,
+      promo_discount: x.promo_discount || 0,
     }))
     .sort((a, b) => (a.date > b.date ? 1 : -1));
   res.json({ payments });
 });
 
-// ---------- CREATE: walk-in booking ----------
+// ---------- walk-in booking ----------
 r.post("/api/manager/walk-in", ...managerOnly, async (req, res) => {
   const {
     guest_name, guest_phone, guest_email,
@@ -118,7 +120,7 @@ r.post("/api/manager/walk-in", ...managerOnly, async (req, res) => {
   }
 });
 
-// ---------- verify a deposit ----------
+// ---------- verify deposit ----------
 r.post("/api/manager/reservations/:id/verify", ...managerOnly, async (req, res) => {
   const resv = await db.reservations.byId(req.params.id);
   if (!resv) return res.status(404).json({ error: "Reservation not found" });
@@ -129,7 +131,7 @@ r.post("/api/manager/reservations/:id/verify", ...managerOnly, async (req, res) 
   res.json({ reservation: updated });
 });
 
-// ---------- cancel a reservation ----------
+// ---------- cancel reservation ----------
 r.post("/api/manager/reservations/:id/cancel", ...managerOnly, async (req, res) => {
   const resv = await db.reservations.byId(req.params.id);
   if (!resv) return res.status(404).json({ error: "Reservation not found" });
@@ -139,7 +141,7 @@ r.post("/api/manager/reservations/:id/cancel", ...managerOnly, async (req, res) 
   res.json({ reservation: updated });
 });
 
-// ---------- complete a reservation ----------
+// ---------- complete reservation ----------
 r.post("/api/manager/reservations/:id/complete", ...managerOnly, async (req, res) => {
   const resv = await db.reservations.byId(req.params.id);
   if (!resv) return res.status(404).json({ error: "Reservation not found" });
@@ -150,7 +152,7 @@ r.post("/api/manager/reservations/:id/complete", ...managerOnly, async (req, res
   res.json({ reservation: updated });
 });
 
-// ---------- DELETE: hard-delete a closed reservation ----------
+// ---------- delete reservation ----------
 r.delete("/api/manager/reservations/:id", ...managerOnly, async (req, res) => {
   const resv = await db.reservations.byId(req.params.id);
   if (!resv) return res.status(404).json({ error: "Reservation not found" });
@@ -165,7 +167,7 @@ r.delete("/api/manager/reservations/:id", ...managerOnly, async (req, res) => {
   res.json({ ok: true, deleted: resv.id, message: `Reservation #${resv.id} permanently deleted` });
 });
 
-// ---------- complete a visit ----------
+// ---------- complete visit ----------
 r.post("/api/manager/visits/:id/complete", ...managerOnly, async (req, res) => {
   const v = await db.visits.byId(req.params.id);
   if (!v) return res.status(404).json({ error: "Visit not found" });
@@ -176,7 +178,7 @@ r.post("/api/manager/visits/:id/complete", ...managerOnly, async (req, res) => {
   res.json({ visit: updated });
 });
 
-// ---------- cancel a visit ----------
+// ---------- cancel visit ----------
 r.post("/api/manager/visits/:id/cancel", ...managerOnly, async (req, res) => {
   const v = await db.visits.byId(req.params.id);
   if (!v) return res.status(404).json({ error: "Visit not found" });
@@ -187,7 +189,7 @@ r.post("/api/manager/visits/:id/cancel", ...managerOnly, async (req, res) => {
   res.json({ visit: updated });
 });
 
-// ---------- DELETE: hard-delete a closed visit ----------
+// ---------- delete visit ----------
 r.delete("/api/manager/visits/:id", ...managerOnly, async (req, res) => {
   const v = await db.visits.byId(req.params.id);
   if (!v) return res.status(404).json({ error: "Visit not found" });
@@ -246,6 +248,88 @@ r.get("/api/manager/caretakers", ...managerOnly, async (req, res) => {
     .filter((u) => u.role === "caretaker")
     .map(({ password_hash, ...u }) => u);
   res.json({ caretakers });
+});
+
+// ---------- packages ----------
+r.get("/api/manager/packages", ...managerOnly, async (req, res) => {
+  const packages = await db.packages.all();
+  res.json({ packages });
+});
+
+r.put("/api/manager/packages/:id", ...managerOnly, async (req, res) => {
+  const pkg = await db.packages.byId(req.params.id);
+  if (!pkg) return res.status(404).json({ error: "Package not found" });
+
+  const { name, price, hours, max_guests } = req.body || {};
+  if (price !== undefined && (isNaN(price) || price < 0))
+    return res.status(400).json({ error: "Price must be a positive number" });
+  if (max_guests !== undefined && (isNaN(max_guests) || max_guests < 1))
+    return res.status(400).json({ error: "max_guests must be at least 1" });
+
+  const updated = await db.packages.update(pkg.id, {
+    name: name ?? pkg.name,
+    price: price !== undefined ? Number(price) : pkg.price,
+    hours: hours ?? pkg.hours,
+    max_guests: max_guests !== undefined ? Number(max_guests) : pkg.max_guests,
+  });
+  res.json({ package: updated });
+});
+
+// ---------- refunds ----------
+r.get("/api/manager/refunds", ...managerOnly, async (req, res) => {
+  const refunds = await db.refunds.all();
+  const allResv = await db.reservations.all();
+  const resvMap = Object.fromEntries(allResv.map((x) => [x.id, x]));
+  const enriched = refunds.map((r) => ({
+    ...r,
+    guest_name: resvMap[r.reservation_id]?.guest_name || "Guest",
+    reservation_date: resvMap[r.reservation_id]?.date || "—",
+    package_id: resvMap[r.reservation_id]?.package_id || "—",
+  }));
+  res.json({ refunds: enriched });
+});
+
+r.post("/api/manager/refunds/:id/approve", ...managerOnly, async (req, res) => {
+  const refund = await db.refunds.byId(req.params.id);
+  if (!refund) return res.status(404).json({ error: "Refund not found" });
+  if (refund.status !== "pending")
+    return res.status(400).json({ error: "Only pending refunds can be approved" });
+  const updated = await db.refunds.approve(refund.id, req.user.id);
+  res.json({ refund: updated });
+});
+
+r.post("/api/manager/refunds/:id/reject", ...managerOnly, async (req, res) => {
+  const refund = await db.refunds.byId(req.params.id);
+  if (!refund) return res.status(404).json({ error: "Refund not found" });
+  if (refund.status !== "pending")
+    return res.status(400).json({ error: "Only pending refunds can be rejected" });
+  const updated = await db.refunds.reject(refund.id, req.user.id, req.body?.reason || null);
+  res.json({ refund: updated });
+});
+
+r.post("/api/manager/refunds", ...managerOnly, async (req, res) => {
+  const { reservation_id, amount, reason, method } = req.body || {};
+  if (!reservation_id) return res.status(400).json({ error: "reservation_id is required" });
+
+  const resv = await db.reservations.byId(reservation_id);
+  if (!resv) return res.status(404).json({ error: "Reservation not found" });
+  if (resv.status !== "approved")
+    return res.status(400).json({ error: "Only approved reservations can be refunded" });
+
+  const finalAmount = Number(amount) || Math.round(resv.deposit_amount * 0.8);
+
+  const refund = await db.refunds.insert({
+    reservation_id: resv.id,
+    amount: finalAmount,
+    reason: reason || "Manager-issued refund",
+    method: method || "GCash",
+    requested_by: req.user.id,
+    status: "approved",
+    approved_by: req.user.id,
+    approved_at: new Date().toISOString(),
+  });
+
+  res.status(201).json({ refund, message: "Refund created and auto-approved. Awaiting admin payment." });
 });
 
 export default r;

@@ -9,12 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Asap:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     .landing { background: #FBF7EE; }
-    .landing-nav {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 18px 32px; position: sticky; top: 0; z-index: 20;
-      background: rgba(251,247,238,0.94); backdrop-filter: blur(8px);
-      border-bottom: 1px solid #eadfc9;
-    }
+    .landing-nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 32px; position: sticky; top: 0; z-index: 20; background: rgba(251,247,238,0.94); backdrop-filter: blur(8px); border-bottom: 1px solid #eadfc9; }
     .landing-nav .brand-row { display: flex; align-items: center; gap: 10px; font-family: Fraunces, serif; font-size: 18px; color: #2E5D46; }
     .landing-nav .brand-row .sun { font-size: 22px; color: #B8912F; }
     .landing-nav nav a { margin-left: 22px; color: #5c4a2a; text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -74,6 +69,38 @@
     .landing-footer { padding: 44px 32px 60px; text-align: center; color: #8a7a55; font-size: 13px; border-top: 1px solid #eadfc9; margin-top: 40px; line-height: 1.9; }
     .landing-footer a { color: #B8912F; text-decoration: none; }
     .landing-footer a:hover { text-decoration: underline; }
+
+    /* ============= FIND MY BOOKING (public, with OTP) ============= */
+    .lookup-box { background: #fff; border: 1px solid #eadfc9; border-radius: 20px; padding: 32px; box-shadow: 0 8px 30px rgba(184,145,47,0.10); max-width: 640px; margin: 0 auto; }
+    .lookup-box h3 { font-family: Fraunces, serif; font-size: 26px; color: #2b2416; margin: 0 0 6px; }
+    .lookup-box .sub { color: #8a7a55; font-size: 14px; margin: 0 0 20px; }
+    .lookup-box label { display: block; font-size: 13px; font-weight: 600; color: #4a3f2b; margin-bottom: 6px; }
+    .lookup-box input { width: 100%; padding: 12px 14px; border: 1.5px solid #eadfc9; border-radius: 10px; font-size: 15px; font-family: inherit; margin-bottom: 14px; box-sizing: border-box; }
+    .lookup-box input:focus { outline: none; border-color: #B8912F; }
+    .lookup-result { margin-top: 8px; }
+    .lookup-result .card-lite { background: #FBF7EE; border: 1px solid #eadfc9; border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+    .lookup-result .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #f0e7d2; }
+    .lookup-result .row:last-child { border-bottom: none; }
+    .lookup-result .row .k { color: #8a7a55; }
+    .lookup-result .row .v { color: #2b2416; font-weight: 600; text-align: right; }
+    .lookup-result .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .badge-approved { background: #E6F0EA; color: #2E5D46; }
+    .badge-hold { background: #FFF1E6; color: #C4572E; }
+    .badge-verify { background: #FDF5DC; color: #B8912F; }
+    .badge-cancelled, .badge-rejected { background: #F5E5E5; color: #A63A3A; }
+    .lookup-result .refund-box { background: #fff; border: 1.5px solid #B8912F; border-radius: 14px; padding: 20px; margin-top: 14px; }
+    .lookup-result .refund-box h4 { margin: 0 0 6px; font-family: Fraunces, serif; font-size: 18px; color: #2b2416; }
+    .lookup-result .refund-box p { font-size: 13px; color: #5c4a2a; margin: 0 0 12px; }
+    .lookup-result .refund-status { text-align: center; padding: 16px; border-radius: 12px; }
+    .refund-status.pending { background: #FDF5DC; color: #B8912F; }
+    .refund-status.approved { background: #E6F0EA; color: #2E5D46; }
+    .refund-status.paid { background: #D5E8DB; color: #2E5D46; }
+    .refund-status.rejected { background: #F5E5E5; color: #A63A3A; }
+    .refund-status .big { font-family: Fraunces, serif; font-size: 20px; margin: 0 0 4px; }
+    .refund-status .small { font-size: 12px; }
+    .lookup-hint { font-size: 12px; color: #8a7a55; text-align: center; margin-top: 14px; }
+    .lookup-hint a { color: #B8912F; }
+
     @media (max-width: 900px) {
       .landing-hero { grid-template-columns: 1fr; gap: 40px; padding-top: 48px; }
       .landing-hero h1 { font-size: 40px; }
@@ -94,45 +121,85 @@
     .mgr-cal-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
     @media (max-width: 900px) { .mgr-cal-wrap { grid-template-columns: 1fr; } }
     .mgr-cal-wrap .card { padding: 18px; }
-
-    /* OTP entry */
-    .otp-input {
-      font-family: ui-monospace, monospace;
-      font-size: 26px;
-      letter-spacing: 12px;
-      text-align: center;
-      padding: 14px;
-    }
+    .otp-input { font-family: ui-monospace, monospace; font-size: 26px; letter-spacing: 12px; text-align: center; padding: 14px; }
     .otp-note { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 4px; }
-    .otp-resend-row {
-      display: flex; justify-content: center; gap: 12px; margin-top: 6px;
-      font-size: 12px;
-    }
-
-    /* mini player */
+    .otp-resend-row { display: flex; justify-content: center; gap: 12px; margin-top: 6px; font-size: 12px; }
     .tour-video-slot { position: relative; transition: all .3s ease; }
-    .tour-mini-close {
-      display: none; position: absolute; top: 8px; right: 8px;
-      width: 26px; height: 26px; border-radius: 50%; border: none;
-      background: rgba(0,0,0,0.75); color: #fff; font-size: 13px;
-      font-weight: 700; cursor: pointer; z-index: 10; line-height: 1; padding: 0;
-    }
+    .tour-mini-close { display: none; position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(0,0,0,0.75); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; z-index: 10; line-height: 1; padding: 0; }
     .tour-mini-close:hover { background: rgba(0,0,0,0.95); }
-    .tour-video-slot.mini {
-      position: fixed; bottom: 24px; right: 24px;
-      height: 300px; width: auto; max-width: calc(100vw - 32px);
-      max-height: calc(100vh - 48px); z-index: 999;
-      border-radius: 16px; overflow: hidden;
-      box-shadow: 0 20px 50px -10px rgba(43,36,22,0.55), 0 0 0 1px rgba(184,145,47,0.35);
-      background: #000;
-      animation: miniSlideIn .3s cubic-bezier(0.4, 0, 0.2, 1);
-      cursor: pointer;
-    }
+    .tour-video-slot.mini { position: fixed; bottom: 24px; right: 24px; height: 300px; width: auto; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); z-index: 999; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 50px -10px rgba(43,36,22,0.55), 0 0 0 1px rgba(184,145,47,0.35); background: #000; animation: miniSlideIn .3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
     @keyframes miniSlideIn { from { opacity: 0; transform: translateY(16px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
     .tour-video-slot.mini video { height: 100%; width: auto; max-height: none; object-fit: contain; border-radius: 16px; display: block; box-shadow: none; }
     .tour-video-slot.mini .tour-mini-close { display: block; }
     .tour-slot-placeholder { border-radius: 20px; background: #000; opacity: 0; pointer-events: none; }
     @media (max-width: 600px) { .tour-video-slot.mini { height: 200px; bottom: 12px; right: 12px; } }
+    
+        /* ============= VOUCHER SAVE NOTICE ============= */
+    .voucher-save-notice {
+      background: #FFF9E6;
+      border: 2px dashed #B8912F;
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-top: 22px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .voucher-save-notice .vsn-title {
+      font-family: Fraunces, serif;
+      font-size: 18px;
+      color: #B8912F;
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .voucher-save-notice .vsn-body {
+      font-size: 14px;
+      color: #4a3f2b;
+      margin: 0 0 10px;
+    }
+    .voucher-save-notice .vsn-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 14px;
+      font-size: 14px;
+      color: #4a3f2b;
+    }
+    .voucher-save-notice .vsn-list li {
+      padding: 4px 0;
+    }
+    .voucher-save-notice .vsn-warn {
+      font-size: 13px;
+      color: #8a3a1a;
+      background: #FFF1E6;
+      border-left: 3px solid #C4572E;
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin: 0 0 14px;
+      line-height: 1.5;
+    }
+    .voucher-save-notice .vsn-copy-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .voucher-save-notice #vsn-ref-input {
+      flex: 1;
+      padding: 10px 14px;
+      font-family: ui-monospace, monospace;
+      font-size: 15px;
+      letter-spacing: 1px;
+      background: #fff;
+      border: 1.5px solid #eadfc9;
+      border-radius: 8px;
+      color: #2b2416;
+      text-align: center;
+      font-weight: 700;
+    }
+    .voucher-save-notice #vsn-copy-btn {
+      padding: 10px 20px;
+      white-space: nowrap;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -144,9 +211,7 @@
       <h1 class="login-title">Golden Villa</h1>
       <p class="login-sub">PRIVATE RESORT · MALOLOS, BULACAN</p>
 
-      <button type="button" id="guest-btn" class="btn btn-gold btn-full" style="margin-bottom:6px">
-        Continue as Customer →
-      </button>
+      <button type="button" id="guest-btn" class="btn btn-gold btn-full" style="margin-bottom:6px">Continue as Customer →</button>
       <p class="login-hint">Book instantly — no account needed.</p>
       <p class="login-divider">or log in as staff</p>
 
@@ -157,7 +222,6 @@
         <button type="submit" id="login-btn" class="btn btn-gold btn-full">Log in</button>
       </form>
 
-      <!-- OTP SCREEN -->
       <form id="otp-form" class="login-form hidden" style="margin-top:10px">
         <p class="login-hint" style="margin-bottom:6px">Enter the 6-digit code we sent you</p>
         <p class="otp-note" id="otp-sent-to"></p>
@@ -171,7 +235,8 @@
         <p id="otp-info" class="otp-note"></p>
       </form>
 
-      <button type="button" id="show-register" class="link-btn" style="margin-top:10px">New caretaker? Register here</button>
+      <button type="button" id="show-lookup-from-login" class="link-btn" style="margin-top:10px">Find my booking →</button>
+      <button type="button" id="show-register" class="link-btn" style="margin-top:4px">New caretaker? Register here</button>
       <button type="button" id="show-invite" class="link-btn" style="margin-top:4px">Have an invite code? Apply here</button>
       <button type="button" id="back-to-landing" class="link-btn" style="margin-top:16px; color:#8a7a55;">← Back to homepage</button>
 
@@ -200,6 +265,44 @@
     </div>
   </div>
 
+  <!-- FIND MY BOOKING (with OTP) -->
+  <div id="lookup-screen" class="login-screen hidden">
+    <div class="lookup-box">
+      <h3>Find my booking</h3>
+
+      <div id="lk-step-a">
+        <p class="sub">Enter the reference number from your voucher and the name you booked under.</p>
+        <label for="lk-ref">Reference number</label>
+        <input id="lk-ref" placeholder="GVB-2026-0161" autocomplete="off" />
+        <label for="lk-name">Full name (as you booked it)</label>
+        <input id="lk-name" type="text" placeholder="Juan Dela Cruz" autocomplete="off" />
+        <p id="lk-error" class="error hidden"></p>
+        <button type="button" id="lk-search" class="btn btn-gold btn-full">Send verification code</button>
+      </div>
+
+      <div id="lk-step-b" class="hidden">
+        <p class="sub" id="lk-otp-msg">Enter the 6-digit code we sent you.</p>
+        <label for="lk-otp">Verification code</label>
+        <input id="lk-otp" type="text" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="one-time-code" style="font-family:ui-monospace,monospace;font-size:22px;letter-spacing:10px;text-align:center" />
+        <p id="lk-otp-error" class="error hidden"></p>
+        <button type="button" id="lk-verify" class="btn btn-gold btn-full">Verify</button>
+        <div class="otp-resend-row" style="margin-top:10px">
+          <button type="button" id="lk-resend" class="link-btn">Resend code</button>
+          <button type="button" id="lk-back-to-a" class="link-btn" style="color:#8a7a55">← Change reference</button>
+        </div>
+        <p id="lk-otp-info" class="otp-note"></p>
+      </div>
+
+      <div id="lk-step-c" class="hidden">
+        <div class="lookup-result" id="lk-result"></div>
+        <button type="button" id="lk-start-over" class="link-btn" style="margin-top:14px; color:#8a7a55;">← Look up another booking</button>
+      </div>
+
+      <p class="lookup-hint">Don't have your reference? <a href="tel:09175550101">Call 0917 555 0101</a> and we'll help you.</p>
+      <button type="button" id="lookup-back" class="link-btn" style="margin-top:16px; color:#8a7a55;">← Back to homepage</button>
+    </div>
+  </div>
+
   <div id="app">
     <section id="view-landing" class="view landing">
       <div class="landing-nav">
@@ -210,6 +313,7 @@
           <a data-scroll="how">How it works</a>
           <a data-scroll="tour">Tour</a>
           <a data-scroll="find-us">Find us</a>
+          <a id="nav-lookup">Find booking</a>
           <a id="nav-login" class="btn-login">Log in</a>
         </nav>
       </div>
@@ -221,7 +325,7 @@
           <p class="sub">One booking per day. Real-time availability. A deposit voucher in hand before you leave the house.</p>
           <div class="cta-row">
             <button class="btn-cta primary" id="cta-book">Book Now →</button>
-            <button class="btn-cta ghost" data-scroll="about">Learn More</button>
+            <button class="btn-cta ghost" id="cta-lookup">Find my booking</button>
           </div>
         </div>
         <div class="hero-image">
@@ -315,7 +419,6 @@
     </section>
 
     <div id="app-shell" class="hidden">
-
       <header class="topbar">
         <div class="brand">
           <span class="brand-sun">☀</span>
@@ -370,11 +473,11 @@
 
         <div class="step-panel hidden" id="step-2">
           <h3 class="panel-title">Who's coming?</h3>
-          <p class="panel-sub">Fill in your details so we can prepare your voucher.</p>
+          <p class="panel-sub">We'll email your voucher and refund options here — so please use a real email.</p>
           <div class="form-col">
-            <label>Full name <input id="f-name" /></label>
+            <label>Full name (Required) <input id="f-name" required /></label>
             <label>Mobile number <input id="f-phone" /></label>
-            <label>Email <input id="f-email" /></label>
+            <label>Email (Required) <input id="f-email" type="email" required /></label>
           </div>
         </div>
 
@@ -382,6 +485,18 @@
           <h3 class="panel-title">Secure it with a deposit</h3>
           <p class="panel-sub" id="deposit-line"></p>
           <div class="hold-banner">⏱ This date is held for you for <b id="hold-timer" class="mono"></b>. After that, it goes back on the calendar.</div>
+
+          <div class="card" style="margin:14px 0">
+            <p class="label">HAVE A PROMO CODE?</p>
+            <div class="visit-row">
+              <label style="flex:1">Promo code
+                <input id="promo-input" placeholder="e.g. SUMMER10" />
+              </label>
+              <button type="button" id="promo-apply" class="btn btn-gold">Apply</button>
+            </div>
+            <p id="promo-msg" class="muted" style="margin-top:6px"></p>
+          </div>
+
           <div class="card pay-channels">
             <p class="label">SEND DEPOSIT VIA</p>
             <span class="chip chip-green">GCash · 0917 555 0101</span>
@@ -397,6 +512,16 @@
           <p class="panel-sub center">Your booking is in the queue for the admin to verify. Here's your reference.</p>
           <div id="voucher-slot"></div>
           <p class="center"><button id="book-again" class="link-btn">Book another date</button></p>
+
+          <div class="card" id="refund-box" style="margin-top:24px;text-align:center">
+            <p class="label">NEED TO CANCEL?</p>
+            <p class="panel-sub">You can request a refund up to 7 days before your check-in date.</p>
+            <button type="button" id="refund-request-btn" class="btn btn-outline-terra">Request refund (80% of deposit)</button>
+            <p id="refund-msg" class="muted" style="margin-top:8px"></p>
+            <p class="muted" style="margin-top:12px;font-size:12px;">
+              Can't see the button? Log out and use <b>Find my booking</b> on the homepage — you'll need your reference number and email.
+            </p>
+          </div>
         </div>
 
         <div class="step-nav" id="step-nav">
@@ -423,6 +548,7 @@
         </div>
       </section>
 
+      <!-- ADMIN -->
       <section id="view-admin" class="view hidden">
         <div class="view-head">
           <div>
@@ -456,12 +582,37 @@
           </div>
         </div>
 
+        <h3 class="panel-title big" style="margin-top:44px">Promo codes</h3>
+        <p class="panel-sub">Create discount codes for your customers.</p>
+        <form id="promo-create-form" class="card staff-form">
+          <div class="form-col">
+            <label>Code <input id="new-promo-code" placeholder="SUMMER10" required /></label>
+            <label>Discount % <input id="new-promo-percent" type="number" min="0" max="100" placeholder="e.g. 10" /></label>
+            <label>OR flat ₱ off <input id="new-promo-amount" type="number" min="0" placeholder="e.g. 500" /></label>
+            <label>Expires (optional) <input id="new-promo-expires" type="date" /></label>
+          </div>
+          <button type="submit" class="btn btn-green">Create promo</button>
+          <p id="promo-create-msg" class="muted"></p>
+        </form>
+        <div class="card" style="margin-top:16px">
+          <p class="label">ALL PROMO CODES</p>
+          <div id="promo-list"></div>
+        </div>
+
+        <h3 class="panel-title big" style="margin-top:44px">User accounts</h3>
+        <p class="panel-sub">Suspend or reactivate staff and customer accounts.</p>
+        <div class="card" id="user-list"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Refunds</h3>
+        <p class="panel-sub">Every refund in the system. Mark approved refunds as paid.</p>
+        <div class="card" id="admin-refund-list"></div>
+
         <h3 class="panel-title big" style="margin-top:44px">Invite new staff</h3>
-        <p class="panel-sub">Create a one-time invite code. Send it to the person — only that email can use it.</p>
+        <p class="panel-sub">Create a one-time invite code.</p>
         <form id="invite-create-form" class="card staff-form">
           <div class="form-col">
             <label>Their email  <input id="new-inv-email" type="email" placeholder="newperson@goldenvb.ph" required /></label>
-            <label>Their name   <input id="new-inv-name"  placeholder="For your reference (optional)" /></label>
+            <label>Their name   <input id="new-inv-name"  placeholder="Optional" /></label>
             <label>Role
               <select id="new-inv-role" required>
                 <option value="caretaker">Caretaker</option>
@@ -473,14 +624,13 @@
           <button type="submit" class="btn btn-green">Generate invite code</button>
           <p id="invite-create-msg" class="muted"></p>
         </form>
-
         <div class="card" style="margin-top:16px">
           <p class="label">ALL INVITES</p>
           <div id="invite-list"></div>
         </div>
 
         <h3 class="panel-title big" style="margin-top:44px">Schedule records</h3>
-        <p class="panel-sub">Complete audit log of every reservation — bookings, deposits, ocular visits, and manager completions.</p>
+        <p class="panel-sub">Complete audit log of every reservation.</p>
         <div id="admin-history-summary"></div>
         <div class="card">
           <div id="history-filter" class="history-filters"></div>
@@ -488,11 +638,12 @@
         </div>
       </section>
 
+      <!-- MANAGER -->
       <section id="view-manager" class="view hidden">
         <div class="view-head">
           <div>
             <h3 class="panel-title big">Operations</h3>
-            <p class="panel-sub">Live queue, schedule, and payments. Refreshes every 5 seconds.</p>
+            <p class="panel-sub">Live queue, schedule, and payments.</p>
           </div>
           <span class="chip chip-gold" id="mgr-pending-count"></span>
         </div>
@@ -501,25 +652,22 @@
         <div class="stat-grid" id="mgr-stat-grid"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Log a walk-in booking</h3>
-        <p class="panel-sub">Someone at the gate without a reservation? Create the booking here — it's approved on the spot.</p>
+        <p class="panel-sub">Someone at the gate without a reservation? Create the booking here.</p>
         <form id="walkin-form" class="card staff-form">
           <div class="form-col">
             <label>Guest name   <input id="wi-name" required placeholder="Juan Dela Cruz" /></label>
             <label>Mobile number <input id="wi-phone" required placeholder="0917 555 0101" /></label>
             <label>Email (optional) <input id="wi-email" type="email" placeholder="guest@email.com" /></label>
-            <label>Package
-              <select id="wi-package" required></select>
-            </label>
+            <label>Package <select id="wi-package" required></select></label>
             <label>Date <input id="wi-date" type="date" required /></label>
             <label>Guests <input id="wi-guests" type="number" min="1" value="10" required /></label>
-            <label>Deposit amount (optional — defaults to 50%) <input id="wi-deposit" type="number" min="0" placeholder="e.g. 2750" /></label>
+            <label>Deposit amount (optional) <input id="wi-deposit" type="number" min="0" placeholder="e.g. 2750" /></label>
           </div>
           <button type="submit" class="btn btn-green">Create walk-in booking</button>
           <p id="walkin-msg" class="muted"></p>
         </form>
 
         <h3 class="panel-title big" style="margin-top:44px">Existing schedule</h3>
-        <p class="panel-sub">Full calendar of every booking and ocular visit. Click any date to see the details.</p>
         <div class="mgr-cal-wrap" id="mgr-cal-wrap">
           <div class="card" id="mgr-cal-1"></div>
           <div class="card" id="mgr-cal-2"></div>
@@ -528,25 +676,30 @@
         <div class="card" id="mgr-calendar-detail" style="margin-top:16px"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Reservation queue</h3>
-        <p class="panel-sub">Every booking that isn't cancelled or rejected.</p>
         <div class="admin-grid">
           <div id="mgr-queue-list" class="queue-list"></div>
           <div id="mgr-queue-detail" class="card detail-panel"></div>
         </div>
 
         <h3 class="panel-title big" style="margin-top:44px">Upcoming schedule</h3>
-        <p class="panel-sub">Approved bookings in the next 30 days.</p>
         <div class="card" id="mgr-schedule-list"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Payments</h3>
-        <p class="panel-sub">Every deposit on file. Verify pending ones from the queue above.</p>
         <div class="card" id="mgr-payments-list"></div>
 
+        <h3 class="panel-title big" style="margin-top:44px">Refund requests</h3>
+        <p class="panel-sub">Approve or reject customer refund requests.</p>
+        <div class="card" id="mgr-refund-list"></div>
+
+        <h3 class="panel-title big" style="margin-top:44px">Package settings</h3>
+        <p class="panel-sub">Edit pricing, hours, and guest limits.</p>
+        <div class="card" id="mgr-package-editor"></div>
+
         <h3 class="panel-title big" style="margin-top:44px">Caretakers</h3>
-        <p class="panel-sub">Staff on the ground.</p>
         <div class="card" id="mgr-caretakers-list"></div>
       </section>
 
+      <!-- CARETAKER -->
       <section id="view-caretaker" class="view hidden">
         <h3 class="panel-title big">Today at the villa</h3>
         <p class="panel-sub" id="today-label"></p>

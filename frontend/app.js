@@ -1,5 +1,5 @@
 /* ============================================================
-   Golden VB — frontend logic
+   Golden VB — frontend logic (with OTP-verified refund lookup)
    ============================================================ */
 
 const $ = (id) => document.getElementById(id);
@@ -55,7 +55,8 @@ let mgrCalendarDays = [];
 let mgrPickedDate = null;
 let adminHistory = [];
 let adminHistoryFilter = "all";
-let otpEmail = null; // holds email during OTP step
+let otpEmail = null;
+let appliedPromo = null;
 
 const PKG_ICONS = { "day-tour": "☀", "overnight": "🌙", "happy-stay": "★" };
 const PKG_TAGS = {
@@ -66,7 +67,7 @@ const PKG_TAGS = {
 const STEP_NAMES = ["Package", "Date", "Details", "Deposit", "Voucher"];
 
 /* ============================================================
-   TOUR VIDEO — ambient autoplay + floating portrait mini player
+   TOUR VIDEO
    ============================================================ */
 (function setupTourVideo() {
   const video    = document.getElementById("tour-video");
@@ -161,11 +162,13 @@ const STEP_NAMES = ["Package", "Date", "Details", "Deposit", "Voucher"];
 function showLanding() {
   $("view-landing").classList.remove("hidden");
   $("login-screen").classList.add("hidden");
+  $("lookup-screen").classList.add("hidden");
   $("app-shell").classList.add("hidden");
   window.scrollTo(0, 0);
 }
 function showLogin() {
   $("view-landing").classList.add("hidden");
+  $("lookup-screen").classList.add("hidden");
   $("app-shell").classList.add("hidden");
   $("login-screen").classList.remove("hidden");
   $("login-email").value = "";
@@ -188,9 +191,27 @@ function showLogin() {
   document.querySelector(".login-divider").classList.remove("hidden");
   otpEmail = null;
 }
+function showLookup() {
+  $("view-landing").classList.add("hidden");
+  $("login-screen").classList.add("hidden");
+  $("app-shell").classList.add("hidden");
+  $("lookup-screen").classList.remove("hidden");
+  // Reset to step A
+  lkState = { ref: "", name: "", refundToken: null };
+  $("lk-ref").value = ""; $("lk-name").value = "";
+  $("lk-otp").value = "";
+  $("lk-error").classList.add("hidden");
+  $("lk-otp-error").classList.add("hidden");
+  $("lk-otp-info").textContent = "";
+  $("lk-otp-msg").textContent = "Enter the 6-digit code we sent you.";
+  $("lk-result").innerHTML = "";
+  lkShowStep("a");
+  window.scrollTo(0, 0);
+}
 function showApp() {
   $("view-landing").classList.add("hidden");
   $("login-screen").classList.add("hidden");
+  $("lookup-screen").classList.add("hidden");
   $("app-shell").classList.remove("hidden");
   $("user-name").textContent = "Hi, " + user.name.split(" ")[0];
 
@@ -209,7 +230,7 @@ function showApp() {
 }
 
 /* ============================================================
-   LANDING
+   LANDING WIRING
    ============================================================ */
 document.querySelectorAll("[data-scroll]").forEach((el) => {
   el.addEventListener("click", (e) => {
@@ -219,6 +240,10 @@ document.querySelectorAll("[data-scroll]").forEach((el) => {
   });
 });
 $("nav-login").addEventListener("click", () => showLogin());
+$("nav-lookup").addEventListener("click", () => showLookup());
+$("cta-lookup").addEventListener("click", () => showLookup());
+$("lookup-back").addEventListener("click", () => showLanding());
+$("show-lookup-from-login").addEventListener("click", () => showLookup());
 $("back-to-landing").addEventListener("click", () => showLanding());
 
 async function bookNow() {
@@ -232,6 +257,186 @@ async function bookNow() {
 }
 $("cta-book").addEventListener("click", bookNow);
 $("cta-book-2").addEventListener("click", bookNow);
+
+/* ============================================================
+   FIND MY BOOKING — 3-step OTP flow
+   ============================================================ */
+let lkState = { ref: "", name: "", refundToken: null };
+
+function lkShowStep(s) {
+  $("lk-step-a").classList.toggle("hidden", s !== "a");
+  $("lk-step-b").classList.toggle("hidden", s !== "b");
+  $("lk-step-c").classList.toggle("hidden", s !== "c");
+}
+
+async function lkStart() {
+  const ref = ($("lk-ref").value || "").trim();
+  const name = ($("lk-name").value || "").trim();
+  const err = $("lk-error");
+  err.classList.add("hidden");
+  if (!ref || !name) {
+    err.textContent = "Please enter both your reference number and name.";
+    err.classList.remove("hidden");
+    return;
+  }
+  const btn = $("lk-search");
+  btn.disabled = true; btn.textContent = "Sending code…";
+  try {
+    const r = await api("/api/reservations/lookup/start", "POST", { ref, name });
+    lkState.ref = ref;
+    lkState.name = name;
+    $("lk-otp-msg").textContent = r.message || "Enter the 6-digit code we sent you.";
+    $("lk-otp").value = "";
+    $("lk-otp-error").classList.add("hidden");
+    $("lk-otp-info").textContent = "";
+    lkShowStep("b");
+    setTimeout(() => $("lk-otp").focus(), 100);
+  } catch (e) {
+    err.textContent = e.message;
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "Send verification code";
+  }
+}
+
+async function lkResend() {
+  $("lk-otp-info").textContent = "Sending a new code…";
+  try {
+    const r = await api("/api/reservations/lookup/resend", "POST", {
+      ref: lkState.ref, name: lkState.name,
+    });
+    $("lk-otp-info").textContent = "✓ " + (r.message || "New code sent.");
+  } catch (e) {
+    $("lk-otp-info").textContent = e.message;
+  }
+}
+
+async function lkVerify() {
+  const code = ($("lk-otp").value || "").replace(/\D/g, "").slice(0, 6);
+  const err = $("lk-otp-error");
+  err.classList.add("hidden");
+  if (code.length !== 6) {
+    err.textContent = "Enter the 6-digit code";
+    err.classList.remove("hidden");
+    return;
+  }
+  const btn = $("lk-verify");
+  btn.disabled = true; btn.textContent = "Verifying…";
+  try {
+    const data = await api("/api/reservations/lookup/verify", "POST", {
+      ref: lkState.ref, name: lkState.name, code,
+    });
+    lkState.refundToken = data.refundToken;
+    renderLookupResult(data);
+    lkShowStep("c");
+  } catch (e) {
+    err.textContent = e.message;
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "Verify";
+  }
+}
+
+function lkStatusClass(s) {
+  if (s === "approved") return "badge-approved";
+  if (s === "hold") return "badge-hold";
+  if (s === "verify") return "badge-verify";
+  return "badge-cancelled";
+}
+
+function renderLookupResult(data) {
+  const r = data.reservation;
+  const refund = data.refund;
+  const box = $("lk-result");
+
+  let html = `
+    <div class="card-lite">
+      <p style="margin:0 0 12px;font-weight:700;color:#2b2416;font-size:16px;">
+        Reservation ${r.ref}
+        <span class="badge ${lkStatusClass(r.status)}" style="float:right">${r.status}</span>
+      </p>
+      <div class="row"><span class="k">Guest</span><span class="v">${r.guest_name}</span></div>
+      <div class="row"><span class="k">Date</span><span class="v">${r.date}</span></div>
+      <div class="row"><span class="k">Package</span><span class="v">${r.package_name}</span></div>
+      <div class="row"><span class="k">Guests</span><span class="v">${r.guests}</span></div>
+      <div class="row"><span class="k">Deposit paid</span><span class="v">${peso(r.deposit_amount)}</span></div>
+      ${r.promo_code ? `<div class="row"><span class="k">Promo</span><span class="v">${r.promo_code} (−${peso(r.promo_discount)})</span></div>` : ""}
+    </div>`;
+
+  if (refund) {
+    const label = {
+      pending:  "Pending approval",
+      approved: "Approved — waiting for payout",
+      paid:     "Paid",
+      rejected: "Rejected",
+    }[refund.status] || refund.status;
+    html += `
+      <div class="refund-status ${refund.status}">
+        <p class="big">${label}</p>
+        <p class="small">Amount: ${peso(refund.amount)} · Method: ${refund.method}</p>
+        ${refund.reference_number ? `<p class="small">Reference: ${refund.reference_number}</p>` : ""}
+        ${refund.rejection_reason ? `<p class="small">Reason: ${refund.rejection_reason}</p>` : ""}
+      </div>`;
+  } else if (data.refundEligible) {
+    html += `
+      <div class="refund-box">
+        <h4>Request a refund</h4>
+        <p>You can cancel this booking and receive <b>${peso(data.refundDefaultAmount)}</b> (80% of your deposit — a 20% cancellation fee applies).</p>
+        <button type="button" id="lk-refund-btn" class="btn btn-outline-terra">Request refund</button>
+        <p id="lk-refund-msg" class="muted" style="margin-top:10px"></p>
+        <p class="muted" style="margin-top:14px;font-size:12px;">
+          Prefer to talk to us? Call <a href="tel:09175550101" style="color:#B8912F">0917 555 0101</a>.
+        </p>
+      </div>`;
+  } else {
+    html += `
+      <div class="refund-status rejected" style="margin-top:14px">
+        <p class="big">Refund not available</p>
+        <p class="small">${data.refundBlockedReason || ""}</p>
+        <p class="small" style="margin-top:8px;">Need help? Call <a href="tel:09175550101">0917 555 0101</a>.</p>
+      </div>`;
+  }
+
+  box.innerHTML = html;
+
+  const btn = document.getElementById("lk-refund-btn");
+  if (btn) btn.addEventListener("click", submitLookupRefund);
+}
+
+async function submitLookupRefund() {
+  const btn = $("lk-refund-btn");
+  const msg = $("lk-refund-msg");
+  if (!confirm("Request a refund for this booking? A 20% cancellation fee will apply.")) return;
+  btn.disabled = true;
+  btn.textContent = "Submitting…";
+  try {
+    const r = await api("/api/reservations/lookup/refund", "POST", {
+      ref: lkState.ref,
+      name: lkState.name,
+      refundToken: lkState.refundToken,
+      reason: "Customer cancellation",
+      method: "GCash",
+    });
+    msg.style.color = "var(--green)";
+    msg.textContent = "✓ " + r.message;
+    btn.textContent = "Refund requested";
+  } catch (e) {
+    msg.style.color = "var(--terra)";
+    msg.textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = "Request refund";
+  }
+}
+
+/* Lookup event wiring */
+$("lk-search").addEventListener("click", lkStart);
+$("lk-verify").addEventListener("click", lkVerify);
+$("lk-resend").addEventListener("click", lkResend);
+$("lk-back-to-a").addEventListener("click", () => lkShowStep("a"));
+$("lk-start-over").addEventListener("click", () => showLookup());
+$("lk-name").addEventListener("keydown", (e) => { if (e.key === "Enter") lkStart(); });
+$("lk-ref").addEventListener("keydown",  (e) => { if (e.key === "Enter") lkStart(); });
+$("lk-otp").addEventListener("keydown",  (e) => { if (e.key === "Enter") lkVerify(); });
 
 /* ============================================================
    LOGIN SCREEN
@@ -249,7 +454,6 @@ $("guest-btn").addEventListener("click", async () => {
   }
 });
 
-// --- login submit ---
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("login-error").classList.add("hidden");
@@ -259,7 +463,6 @@ $("login-form").addEventListener("submit", async (e) => {
       password: $("login-password").value,
     });
 
-    // If backend asks for OTP, switch to OTP screen
     if (data.otp_required) {
       otpEmail = data.email;
       $("login-form").classList.add("hidden");
@@ -277,7 +480,6 @@ $("login-form").addEventListener("submit", async (e) => {
       return;
     }
 
-    // Normal login
     setSession(data.token, data.user);
     user = data.user;
     showApp();
@@ -287,7 +489,6 @@ $("login-form").addEventListener("submit", async (e) => {
   }
 });
 
-// --- OTP verify ---
 $("otp-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("otp-error").classList.add("hidden");
@@ -311,7 +512,6 @@ $("otp-form").addEventListener("submit", async (e) => {
   }
 });
 
-// --- OTP resend ---
 $("otp-resend").addEventListener("click", async () => {
   if (!otpEmail) return;
   $("otp-info").textContent = "Sending a new code…";
@@ -323,10 +523,8 @@ $("otp-resend").addEventListener("click", async () => {
   }
 });
 
-// --- OTP back to login ---
 $("otp-back").addEventListener("click", () => showLogin());
 
-// --- register caretaker ---
 $("show-register").addEventListener("click", () => {
   $("login-form").classList.add("hidden");
   $("guest-btn").classList.add("hidden");
@@ -357,7 +555,6 @@ $("register-form").addEventListener("submit", async (e) => {
   }
 });
 
-// --- invite code ---
 $("show-invite").addEventListener("click", () => {
   $("login-form").classList.add("hidden");
   $("guest-btn").classList.add("hidden");
@@ -393,7 +590,7 @@ $("logout-btn").addEventListener("click", () => {
   clearSession();
   user = null; role = "customer"; step = 0; pickedDate = null;
   uploaded = false; reservationId = null; holdSeconds = 24 * 3600;
-  otpEmail = null;
+  otpEmail = null; appliedPromo = null;
   stopAdminPoll(); stopManagerPoll();
   showLanding();
 });
@@ -410,8 +607,8 @@ function switchRole(next) {
     $("view-" + r).classList.toggle("hidden", r !== role)
   );
   stopAdminPoll(); stopManagerPoll();
-  if (role === "admin")    { loadAdmin(); loadAdminStats(); loadInvites(); loadAdminHistory(); }
-  if (role === "manager")  { loadManager(); }
+  if (role === "admin")    { loadAdmin(); loadAdminStats(); loadInvites(); loadAdminHistory(); loadPromos(); loadUsers(); loadAdminRefunds(); }
+  if (role === "manager")  { loadManager(); loadManagerRefunds(); }
   if (role === "caretaker") loadCaretaker();
 }
 
@@ -539,6 +736,28 @@ function startHoldTimer() {
 
 $("back-btn").addEventListener("click", () => { if (step > 0) { step--; renderSteps(); } });
 
+$("promo-apply").addEventListener("click", async () => {
+  const code = ($("promo-input").value || "").trim();
+  const msg = $("promo-msg");
+  msg.textContent = ""; msg.style.color = "";
+  if (!code) { msg.textContent = "Enter a promo code first."; return; }
+  try {
+    const r = await api("/api/reservations/check-promo", "POST", { code, package_id: pkgId });
+    appliedPromo = r.promo;
+    if (r.preview) {
+      msg.style.color = "var(--green)";
+      msg.textContent = `✓ ${r.promo.code} applied — you save ${peso(r.preview.savings)} (new total: ${peso(r.preview.discounted)})`;
+    } else {
+      msg.style.color = "var(--green)";
+      msg.textContent = `✓ ${r.promo.code} applied`;
+    }
+  } catch (err) {
+    appliedPromo = null;
+    msg.style.color = "var(--terra)";
+    msg.textContent = err.message;
+  }
+});
+
 $("next-btn").addEventListener("click", async () => {
   $("customer-error").classList.add("hidden");
   if (step === 0 && !pkgId) return;
@@ -555,18 +774,30 @@ $("next-btn").addEventListener("click", async () => {
     if (!$("f-name").value.trim() || !$("f-phone").value.trim()) {
       showError("customer-error", "Name and mobile number are required."); return;
     }
+    if (!$("f-email").value.trim()) {
+      showError("customer-error", "Email is required so we can send your voucher and refund options."); return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("f-email").value.trim())) {
+      showError("customer-error", "Please enter a valid email address."); return;
+    }
     try {
       const r = await api("/api/reservations", "POST", {
         package_id: pkgId, date: pickedDate, guests,
         guest_name: $("f-name").value,
         guest_phone: $("f-phone").value,
         guest_email: $("f-email").value || null,
+        promo_code: appliedPromo ? appliedPromo.code : null,
       });
       reservationId = r.id;
       await refreshAvailability(); renderCalendars();
       step = 3;
       const pkg = currentPkg();
-      $("deposit-line").textContent = "50% down (" + peso(Math.round(pkg.price / 2)) + ") holds your date. Unpaid holds auto-cancel in the database.";
+      const discounted = appliedPromo && appliedPromo.discount_percent
+        ? Math.round(pkg.price * (1 - appliedPromo.discount_percent / 100))
+        : appliedPromo && appliedPromo.discount_amount
+          ? Math.max(0, pkg.price - appliedPromo.discount_amount)
+          : pkg.price;
+      $("deposit-line").textContent = "50% down (" + peso(Math.round(discounted / 2)) + ") holds your date. Unpaid holds auto-cancel in the database.";
     } catch (err) {
       showError("customer-error", err.message);
       await refreshAvailability(); renderCalendars();
@@ -595,7 +826,12 @@ function renderVoucher() {
   const [y, m, d] = pickedDate.split("-").map(Number);
   const dateLabel = new Date(y, m - 1, d).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const ref = "GVB-2026-" + String(reservationId || 0).padStart(4, "0");
+  let discounted = pkg.price;
+  if (appliedPromo && appliedPromo.discount_percent) discounted = Math.round(pkg.price * (1 - appliedPromo.discount_percent / 100));
+  else if (appliedPromo && appliedPromo.discount_amount) discounted = Math.max(0, pkg.price - appliedPromo.discount_amount);
+
   $("voucher-greet").textContent = "Deposit received, " + ($("f-name").value.split(" ")[0] || "friend");
+
   $("voucher-slot").innerHTML = `
     <div class="voucher"><div class="voucher-inner">
       <p class="voucher-brand">Golden Villa Private Resort</p>
@@ -606,14 +842,55 @@ function renderVoucher() {
         <div class="row"><span>Guest</span><span><b>${$("f-name").value}</b></span></div>
         <div class="row"><span>Date</span><span>${dateLabel}</span></div>
         <div class="row"><span>Package</span><span>${guests} guests · ${pkg.name}</span></div>
-        <div class="row"><span>Deposit</span><span style="color:var(--green);font-weight:700">${peso(Math.round(pkg.price / 2))} · verifying</span></div>
+        ${appliedPromo ? `<div class="row"><span>Promo</span><span style="color:var(--gold-dark);font-weight:700">${appliedPromo.code} · −${peso(pkg.price - discounted)}</span></div>` : ""}
+        <div class="row"><span>Deposit</span><span style="color:var(--green);font-weight:700">${peso(Math.round(discounted / 2))} · verifying</span></div>
       </div>
       <p class="voucher-foot">📞 Present this voucher upon arrival · Malolos, Bulacan</p>
-    </div></div>`;
+    </div></div>
+
+    <div class="voucher-save-notice">
+      <p class="vsn-title">📌 Save this reference — you'll need it</p>
+      <p class="vsn-body">
+        Your reference number <b>${ref}</b> is your ticket to:
+      </p>
+      <ul class="vsn-list">
+        <li>📸 Check-in at the resort gate</li>
+        <li>🔄 Request a refund if plans change</li>
+        <li>🔍 Find your booking later on our homepage</li>
+      </ul>
+      <p class="vsn-warn">
+        <b>Keep it safe.</b> Take a screenshot now, or copy the reference below. We'll also email a copy to <b>${$("f-email").value || "your email"}</b>.
+      </p>
+      <div class="vsn-copy-row">
+        <input id="vsn-ref-input" type="text" value="${ref}" readonly />
+        <button type="button" id="vsn-copy-btn" class="btn btn-gold">Copy</button>
+      </div>
+    </div>
+  `;
+
+  // Wire up the copy button
+  const copyBtn = document.getElementById("vsn-copy-btn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const input = document.getElementById("vsn-ref-input");
+      try {
+        await navigator.clipboard.writeText(input.value);
+        copyBtn.textContent = "✓ Copied";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
+      } catch {
+        input.select();
+        document.execCommand("copy");
+        copyBtn.textContent = "✓ Copied";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
+      }
+    });
+  }
 }
 
 $("book-again").addEventListener("click", () => {
   step = 0; pickedDate = null; uploaded = false; reservationId = null; holdSeconds = 24 * 3600;
+  appliedPromo = null;
+  $("promo-input").value = ""; $("promo-msg").textContent = "";
   $("upload-proof").classList.remove("done");
   $("upload-text").textContent = "📤 Upload a photo of your deposit slip or GCash receipt";
   renderSteps(); renderCalendars();
@@ -639,6 +916,29 @@ async function renderVisits() {
       : "";
   } catch {}
 }
+
+/* Customer refund request (from voucher page) */
+document.addEventListener("click", async (e) => {
+  if (e.target && e.target.id === "refund-request-btn") {
+    const msg = $("refund-msg");
+    msg.textContent = ""; msg.style.color = "";
+    if (!reservationId) { msg.textContent = "No active reservation."; return; }
+    if (!confirm("Request a refund for this booking? A 20% cancellation fee will apply.")) return;
+    try {
+      const r = await api(`/api/reservations/${reservationId}/refund-request`, "POST", {
+        reason: "Customer cancellation",
+        method: "GCash",
+      });
+      msg.style.color = "var(--green)";
+      msg.textContent = "✓ " + r.message;
+      e.target.disabled = true;
+      e.target.textContent = "Refund requested";
+    } catch (err) {
+      msg.style.color = "var(--terra)";
+      msg.textContent = err.message;
+    }
+  }
+});
 
 /* ============================================================
    ADMIN
@@ -714,6 +1014,7 @@ function renderQueueDetail() {
           <div class="receipt-rows">
             <div class="r"><span>Proof</span><span class="mono">${r.deposit_proof || "—"}</span></div>
             <div class="r"><span>To</span><span>Golden Villa PR</span></div>
+            ${r.promo_code ? `<div class="r"><span>Promo</span><span>${r.promo_code} (−${peso(r.promo_discount)})</span></div>` : ""}
           </div>
         </div>
       </div>
@@ -745,6 +1046,7 @@ function renderQueueDetail() {
       <div class="r"><span>Contact</span><span>${r.phone || "—"}</span></div>
       <div class="r"><span>Guests</span><span>${r.guests}</span></div>
       <div class="r"><span>Package price</span><span>${peso(r.price)}</span></div>
+      ${r.promo_code ? `<div class="r"><span>Promo applied</span><span>${r.promo_code}</span></div>` : ""}
     </div>`;
 }
 
@@ -755,6 +1057,116 @@ window.reviewReservation = async (id, action) => {
   } catch (err) { showError("admin-error", err.message); }
 };
 
+/* PROMO */
+$("promo-create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("promo-create-msg");
+  msg.textContent = ""; msg.style.color = "";
+  const body = {
+    code: $("new-promo-code").value.trim(),
+    discount_percent: Number($("new-promo-percent").value) || 0,
+    discount_amount: Number($("new-promo-amount").value) || 0,
+    expires_at: $("new-promo-expires").value || null,
+  };
+  try {
+    await api("/api/admin/promos", "POST", body);
+    msg.style.color = "var(--green)";
+    msg.textContent = "✓ Promo created";
+    e.target.reset();
+    loadPromos();
+  } catch (err) {
+    msg.style.color = "var(--terra)";
+    msg.textContent = err.message;
+  }
+});
+
+async function loadPromos() {
+  try {
+    const data = await api("/api/admin/promos");
+    $("promo-list").innerHTML = data.promos.length ? data.promos.map((p) => {
+      const discount = p.discount_percent ? `${p.discount_percent}%` : `₱${p.discount_amount}`;
+      const expired = p.expires_at && new Date(p.expires_at) < new Date();
+      const status = !p.active ? "revoked" : expired ? "expired" : "active";
+      return `<div class="invite-row" style="grid-template-columns: 1fr 100px 140px 100px 220px;align-items:center">
+        <span class="invite-code">${p.code}</span>
+        <span>−${discount}</span>
+        <span>${p.expires_at ? p.expires_at.slice(0,10) : "no expiry"}</span>
+        <span class="status-pill status-${status}">${status}</span>
+        <span style="display:flex;gap:6px">
+          ${p.active ? `<button class="btn btn-outline-terra" onclick="revokePromo(${p.id})">Revoke</button>` : ""}
+          <button class="btn btn-outline-terra" onclick="deletePromo(${p.id})">Delete</button>
+        </span>
+      </div>`;
+    }).join("") : '<p class="muted">No promo codes yet.</p>';
+  } catch (err) { $("promo-list").innerHTML = `<p class="error">${err.message}</p>`; }
+}
+
+window.revokePromo = async (id) => {
+  if (!confirm("Revoke this promo code?")) return;
+  try { await api(`/api/admin/promos/${id}/revoke`, "POST"); loadPromos(); }
+  catch (err) { alert(err.message); }
+};
+
+window.deletePromo = async (id) => {
+  if (!confirm("Permanently delete this promo?")) return;
+  try { await api(`/api/admin/promos/${id}`, "DELETE"); loadPromos(); }
+  catch (err) { alert(err.message); }
+};
+
+/* USERS */
+/* USERS */
+async function loadUsers() {
+  try {
+    const data = await api("/api/admin/users");
+    $("user-list").innerHTML = data.users.length ? data.users.map((u) => {
+      const status = u.status || "active";
+      const isAdmin = u.role === "admin";
+      const isSelf = user && u.id === user.id;
+
+      // Action buttons — only show what's allowed
+      const actions = [];
+
+      if (status === "suspended" || status === "banned") {
+        actions.push(`<button class="btn btn-green" onclick="setUserStatus(${u.id}, 'active')">Reactivate</button>`);
+      } else if (status === "active") {
+        if (!isSelf) actions.push(`<button class="btn btn-outline-terra" onclick="setUserStatus(${u.id}, 'suspended')">Suspend</button>`);
+      }
+
+      // Remove button — hidden for admins, hidden for yourself, hidden if already removed
+      if (!isAdmin && !isSelf && status !== "removed") {
+        actions.push(`<button class="btn btn-outline-terra" onclick="removeWorker(${u.id}, '${u.name.replace(/'/g, "\\'")}')">Remove</button>`);
+      }
+
+      return `
+        <div class="invite-row" style="grid-template-columns: 1fr 1fr 120px 180px 260px;align-items:center;gap:8px">
+          <span><b>${u.name}</b>${isSelf ? ' <span class="muted">(you)</span>' : ''}</span>
+          <span>${u.email}</span>
+          <span class="status-pill status-${status === "removed" ? "revoked" : status}">${u.role}</span>
+          <span class="status-pill status-${status === "removed" ? "revoked" : status}">${status}</span>
+          <span style="display:flex;gap:6px;flex-wrap:wrap">${actions.join("")}</span>
+        </div>
+      `;
+    }).join("") : '<p class="muted">No users yet.</p>';
+  } catch (err) { $("user-list").innerHTML = `<p class="error">${err.message}</p>`; }
+}
+
+window.setUserStatus = async (id, status) => {
+  if (!confirm(`Set this user to "${status}"?`)) return;
+  try { await api(`/api/admin/users/${id}/status`, "POST", { status }); loadUsers(); }
+  catch (err) { alert(err.message); }
+};
+
+/* Remove worker (soft delete) */
+window.removeWorker = async (id, name) => {
+  if (!confirm(`Remove ${name}?\n\nThey will no longer be able to log in. Their past reservations and audit records will still keep their name.`)) return;
+  try {
+    await api(`/api/admin/users/${id}/status`, "POST", { status: "removed" });
+    loadUsers();
+    loadAdminHistory(); // refresh the history so you can see it's preserved
+  } catch (err) { alert(err.message); }
+};
+
+/* INVITES */
 $("invite-create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = $("invite-create-msg");
@@ -786,6 +1198,7 @@ async function loadInvites() {
   } catch (err) { $("invite-list").innerHTML = `<p class="error">${err.message}</p>`; }
 }
 
+/* HISTORY */
 async function loadAdminHistory() {
   try {
     const data = await api("/api/admin/history");
@@ -846,7 +1259,7 @@ function renderAdminHistory() {
       ? '<span class="type-badge visit">Ocular visit</span>'
       : '<span class="type-badge booking">Booking</span>';
     const title = isVisit ? `Ocular visit · ${r.time || ""}` : `Reservation #${r.id} — ${r.guest_name || "Guest"}`;
-    const sub = isVisit ? `${r.guests} pax visit` : `${r.package_id} · ${r.guests} pax · ref ${r.ref || "—"}`;
+    const sub = isVisit ? `${r.guests} pax visit` : `${r.package_id} · ${r.guests} pax · ref ${r.ref || "—"}${r.promo_code ? " · " + r.promo_code : ""}`;
     const metaParts = [];
     if (r.created_at) metaParts.push(`<b>Booked</b> ${r.created_at.slice(0, 10)}`);
     if (r.completed_at) metaParts.push(`<b>Completed</b> ${r.completed_at.slice(0, 10)} by ${r.completed_by_name || "—"}`);
@@ -867,6 +1280,53 @@ function renderAdminHistory() {
       </div>`;
   }).join("") + "</div>";
 }
+
+/* ADMIN REFUNDS */
+const REFUND_STATUS_LABELS = {
+  pending: "Pending approval",
+  approved: "Approved · awaiting payment",
+  paid: "Paid",
+  rejected: "Rejected",
+};
+
+async function loadAdminRefunds() {
+  const box = $("admin-refund-list");
+  if (!box) return;
+  try {
+    const data = await api("/api/admin/refunds");
+    box.innerHTML = data.refunds.length ? data.refunds.map((r) => `
+      <div class="invite-row" style="grid-template-columns: 1fr 120px 120px 150px 200px 180px;align-items:center;gap:8px">
+        <span><b>${r.guest_name}</b> · Resv #${r.reservation_id}</span>
+        <span>${peso(r.amount)}</span>
+        <span>${r.method}</span>
+        <span class="status-pill status-${r.status === "paid" ? "active" : r.status === "rejected" ? "revoked" : "active"}">
+          ${REFUND_STATUS_LABELS[r.status] || r.status}
+        </span>
+        <span class="muted">
+          ${r.status === "pending" ? "Awaiting manager approval" : ""}
+          ${r.status === "approved" ? "By " + (r.approved_by_name || "—") : ""}
+          ${r.status === "paid" ? "Ref: " + (r.reference_number || "—") : ""}
+          ${r.status === "rejected" ? "By " + (r.rejected_by_name || "—") : ""}
+        </span>
+        <span style="display:flex;gap:6px">
+          ${r.status === "approved" ? `<button class="btn btn-green" onclick="adminPayRefund(${r.id})">Mark as paid</button>` : ""}
+        </span>
+      </div>
+    `).join("") : '<p class="muted">No refunds yet.</p>';
+  } catch (err) { box.innerHTML = `<p class="error">${err.message}</p>`; }
+}
+
+window.adminPayRefund = async (id) => {
+  const reference = prompt("Enter the GCash / BDO reference number:");
+  if (!reference) return;
+  try {
+    const r = await api(`/api/admin/refunds/${id}/pay`, "POST", { reference_number: reference });
+    alert(r.message);
+    loadAdminRefunds();
+    loadAdminQuiet();
+    loadAdminStats();
+  } catch (err) { alert(err.message); }
+};
 
 /* ============================================================
    MANAGER
@@ -906,6 +1366,8 @@ async function loadManager() {
     renderMgrSchedule(schedule.schedule);
     renderMgrPayments(payments.payments);
     renderMgrCaretakers(caretakers.caretakers);
+    renderMgrPackageEditor();
+    loadManagerRefunds();
     $("manager-error").classList.add("hidden");
   } catch (err) { showError("manager-error", err.message); }
   managerPoll = setInterval(loadManagerQuiet, 5000);
@@ -925,6 +1387,85 @@ async function loadManagerQuiet() {
   } catch {}
 }
 function stopManagerPoll() { clearInterval(managerPoll); }
+
+async function loadManagerRefunds() {
+  const box = $("mgr-refund-list");
+  if (!box) return;
+  try {
+    const data = await api("/api/manager/refunds");
+    box.innerHTML = data.refunds.length ? data.refunds.map((r) => `
+      <div class="invite-row" style="grid-template-columns: 1fr 130px 180px 180px 220px;align-items:center;gap:10px">
+        <span><b>${r.guest_name}</b> · Reservation #${r.reservation_id}</span>
+        <span>${peso(r.amount)}</span>
+        <span class="status-pill status-${r.status === "paid" ? "active" : r.status === "rejected" ? "revoked" : "active"}">
+          ${REFUND_STATUS_LABELS[r.status] || r.status}
+        </span>
+        <span class="muted">${r.method} · ${r.reason || "—"}</span>
+        <span style="display:flex;gap:6px">
+          ${r.status === "pending"
+            ? `<button class="btn btn-green" onclick="mgrApproveRefund(${r.id})">Approve</button>
+               <button class="btn btn-outline-terra" onclick="mgrRejectRefund(${r.id})">Reject</button>`
+            : ""}
+          ${r.status === "approved" ? `<span class="muted">→ Sent to Admin</span>` : ""}
+          ${r.status === "paid" ? `<span class="muted">GCash ref: ${r.reference_number || "—"}</span>` : ""}
+          ${r.status === "rejected" ? `<span class="muted">${r.rejection_reason || "Rejected"}</span>` : ""}
+        </span>
+      </div>
+    `).join("") : '<p class="muted">No refund requests yet.</p>';
+  } catch (err) { box.innerHTML = `<p class="error">${err.message}</p>`; }
+}
+
+window.mgrApproveRefund = async (id) => {
+  if (!confirm("Approve this refund? It will be sent to the Admin for payment.")) return;
+  try { await api(`/api/manager/refunds/${id}/approve`, "POST"); loadManagerRefunds(); }
+  catch (err) { alert(err.message); }
+};
+window.mgrRejectRefund = async (id) => {
+  const reason = prompt("Reason for rejection:");
+  if (reason === null) return;
+  try { await api(`/api/manager/refunds/${id}/reject`, "POST", { reason }); loadManagerRefunds(); }
+  catch (err) { alert(err.message); }
+};
+
+function renderMgrPackageEditor() {
+  const el = $("mgr-package-editor");
+  if (!el) return;
+  if (!packages.length) {
+    el.innerHTML = '<p class="muted">No packages loaded yet.</p>';
+    return;
+  }
+  el.innerHTML = packages.map((p) => `
+    <div class="invite-row" style="grid-template-columns: 1fr 140px 120px 140px 110px;align-items:center;gap:10px">
+      <span><b>${p.name}</b> <span class="muted">(${p.id})</span></span>
+      <input type="text"   data-pkg-name="${p.id}"  value="${p.name}"       placeholder="Name"       style="padding:6px"/>
+      <input type="number" data-pkg-price="${p.id}" value="${p.price}"      placeholder="Price"      style="padding:6px"/>
+      <input type="text"   data-pkg-hours="${p.id}" value="${p.hours}"      placeholder="Hours"      style="padding:6px"/>
+      <input type="number" data-pkg-max="${p.id}"   value="${p.max_guests}" placeholder="Max guests" style="padding:6px"/>
+    </div>
+  `).join("") + `<div style="margin-top:14px"><button class="btn btn-green" onclick="saveAllPackages()">Save all changes</button><span id="pkg-save-msg" style="margin-left:12px"></span></div>`;
+}
+
+window.saveAllPackages = async () => {
+  const msg = $("pkg-save-msg");
+  msg.textContent = "";
+  try {
+    for (const p of packages) {
+      const name = document.querySelector(`[data-pkg-name="${p.id}"]`).value;
+      const price = Number(document.querySelector(`[data-pkg-price="${p.id}"]`).value);
+      const hours = document.querySelector(`[data-pkg-hours="${p.id}"]`).value;
+      const max_guests = Number(document.querySelector(`[data-pkg-max="${p.id}"]`).value);
+      await api(`/api/manager/packages/${p.id}`, "PUT", { name, price, hours, max_guests });
+    }
+    msg.style.color = "var(--green)";
+    msg.textContent = "✓ Saved";
+    const fresh = await api("/api/reservations/packages");
+    packages = fresh.packages;
+    renderMgrPackageEditor();
+  } catch (err) {
+    msg.style.color = "var(--terra)";
+    msg.textContent = err.message;
+  }
+};
 
 function renderMgrStats(o) {
   const stats = [
@@ -1089,6 +1630,7 @@ function renderMgrDetail() {
       <div class="r"><span>Date</span><span>${r.date}</span></div>
       <div class="r"><span>Guests</span><span>${r.guests}</span></div>
       <div class="r"><span>Deposit</span><span>${peso(r.deposit_amount)}</span></div>
+      ${r.promo_code ? `<div class="r"><span>Promo</span><span>${r.promo_code} (−${peso(r.promo_discount)})</span></div>` : ""}
       <div class="r"><span>Ref</span><span class="mono">${r.ref || "—"}</span></div>
     </div>
     <div class="detail-actions" style="margin-top:16px">${actions.join("")}</div>`;
@@ -1117,7 +1659,7 @@ function renderMgrPayments(list) {
   $("mgr-payments-list").innerHTML = list.length ? list.map((p) => `
     <div class="upcoming-row">
       <span>${p.date}</span>
-      <span>${p.guest_name || "Guest"} · ${peso(p.deposit_amount)}</span>
+      <span>${p.guest_name || "Guest"} · ${peso(p.deposit_amount)}${p.promo_code ? " · " + p.promo_code : ""}</span>
       <span class="status-chip status-${p.status}">${STATUS_LABELS[p.status] || p.status}</span>
     </div>
   `).join("") : '<p class="muted">No deposits on file yet.</p>';

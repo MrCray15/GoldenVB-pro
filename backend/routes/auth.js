@@ -13,6 +13,14 @@ const OTP_ROLES = ["admin", "manager"];
 function generateOtp() { return String(randomInt(100000, 999999)); }
 function hashOtp(code) { return createHash("sha256").update(code).digest("hex"); }
 
+// helper: is this account blocked?
+function isBlocked(user) {
+  return user && (user.status === "suspended" || user.status === "banned");
+}
+function blockMessage(user) {
+  return "Your account is " + user.status + ". Contact the admin.";
+}
+
 // ============================================================
 // LOGIN
 // ============================================================
@@ -28,6 +36,9 @@ r.post("/api/auth/login", async (req, res) => {
 
   if (!verifyPassword(password, user.password_hash))
     return res.status(401).json({ error: "Wrong email or password" });
+
+  // ⬇️ BLOCK SUSPENDED / BANNED USERS
+  if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
 
   // ---- staff 2FA ----
   if (OTP_ROLES.includes(user.role)) {
@@ -65,6 +76,9 @@ r.post("/api/auth/otp/verify", async (req, res) => {
   const user = await db.users.byEmail(email.toLowerCase());
   if (!user) return res.status(404).json({ error: "User not found" });
 
+  // ⬇️ BLOCK SUSPENDED / BANNED USERS (defense in depth — could have been banned mid-OTP)
+  if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
   const record = await db.otps.latestFor(user.email, "login");
   if (!record) return res.status(400).json({ error: "No active code. Please log in again." });
 
@@ -96,6 +110,9 @@ r.post("/api/auth/otp/resend", async (req, res) => {
   if (!user || !OTP_ROLES.includes(user.role))
     return res.status(404).json({ error: "No OTP-login account for that email" });
 
+  // ⬇️ BLOCK SUSPENDED / BANNED USERS
+  if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
   try {
     const code = generateOtp();
     const code_hash = hashOtp(code);
@@ -125,6 +142,9 @@ r.post("/api/auth/guest", async (req, res) => {
       role: "customer", phone: null,
     });
   }
+  // ⬇️ BLOCK SUSPENDED / BANNED GUEST (rare, but consistent)
+  if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
   res.json({ user: pub(user), token: sign(user) });
 });
 
@@ -185,6 +205,10 @@ r.post("/api/auth/apply-admin", async (req, res) => {
 r.get("/api/auth/me", requireAuth, async (req, res) => {
   const user = await db.users.byId(req.user.id);
   if (!user) return res.status(404).json({ error: "User not found" });
+
+  // ⬇️ BLOCK SUSPENDED / BANNED USERS
+  if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
   res.json({ user: pub(user) });
 });
 

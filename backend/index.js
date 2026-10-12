@@ -1,3 +1,4 @@
+import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +11,7 @@ import managerRoutes from "./routes/manager.js";
 import db from "./db.js";
 
 const PORT = process.env.PORT || 3001;
-const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
+const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "frontend");
 const MIME = {
   ".html": "text/html",
   ".css": "text/css",
@@ -46,10 +47,10 @@ const server = http.createServer(async (req, res) => {
   try { req.body = body ? JSON.parse(body) : {}; } catch { req.body = {}; }
 
   // static files
-  if (req.method === "GET" && !req.path.startsWith("/api/")) {
+   if (req.method === "GET" && !req.path.startsWith("/api/")) {
     const rel = req.path === "/" ? "/index.html" : req.path;
-    const file = path.normalize(path.join(PUBLIC, rel));
-    if (file.startsWith(PUBLIC) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+    const file = path.normalize(path.join(FRONTEND, rel));
+    if (file.startsWith(FRONTEND) && fs.existsSync(file) && fs.statSync(file).isFile()) {
       res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "text/plain" });
       return res.end(fs.readFileSync(file));
     }

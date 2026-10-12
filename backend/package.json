@@ -12,6 +12,7 @@
     "seed": "node --env-file=.env seed.js"
   },
   "dependencies": {
+    "dotenv": "^18.0.7",
     "mongodb": "^6.0.0",
     "nodemailer": "^10.1.0"
   }

@@ -18,6 +18,8 @@ const Counters     = mongo.collection("counters");
 const Invites      = mongo.collection("invites");
 const Deleted      = mongo.collection("deleted_records");
 const Otps         = mongo.collection("otps");
+const Promos       = mongo.collection("promos");
+const Refunds      = mongo.collection("refunds");
 
 async function nextId(name) {
   const r = await Counters.findOneAndUpdate(
@@ -43,7 +45,8 @@ await Reservations.createIndex(
 await Invites.createIndex({ code: 1 }, { unique: true });
 await Invites.createIndex({ email: 1 });
 
-// OTP indexes — TTL auto-deletes expired codes
+await Promos.createIndex({ code: 1 }, { unique: true });
+
 await Otps.createIndex({ email: 1 });
 await Otps.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 });
 
@@ -64,6 +67,7 @@ const db = {
         password_hash: u.password_hash,
         role: u.role,
         phone: u.phone ?? null,
+        status: u.status ?? "active",
         created_at: new Date().toISOString(),
       };
       await Users.insertOne(doc);
@@ -72,7 +76,11 @@ const db = {
     byEmail: async (email) => strip(await Users.findOne({ email })),
     byId:    async (id)    => strip(await Users.findOne({ id: Number(id) })),
     all:     async ()      => (await Users.find({}).toArray()).map(strip),
-    clear:   async ()      => {
+    updateStatus: async (id, status) => {
+      await Users.updateOne({ id: Number(id) }, { $set: { status } });
+      return db.users.byId(id);
+    },
+    clear: async () => {
       await Users.deleteMany({});
       await Counters.deleteOne({ _id: "users" });
     },
@@ -93,6 +101,14 @@ const db = {
     },
     all:   async ()   => (await Packages.find({}).toArray()).map(strip),
     byId:  async (id) => strip(await Packages.findOne({ id })),
+    update: async (id, patch) => {
+      const allowed = ["name", "price", "hours", "max_guests"];
+      const clean = {};
+      for (const k of allowed) if (patch[k] !== undefined) clean[k] = patch[k];
+      await Packages.updateOne({ id }, { $set: clean });
+      return db.packages.byId(id);
+    },
+    clear: async () => { await Packages.deleteMany({}); },
   },
 
   reservations: {
@@ -109,6 +125,8 @@ const db = {
         deposit_amount: r.deposit_amount,
         deposit_proof: r.deposit_proof ?? null,
         hold_expires_at: r.hold_expires_at ?? null,
+        promo_code: r.promo_code ?? null,
+        promo_discount: r.promo_discount ?? 0,
         checked_in: 0,
         checked_in_at: null,
         checked_in_by: null,
@@ -240,7 +258,6 @@ const db = {
     clear: async () => { await Deleted.deleteMany({}); },
   },
 
-  // ---------- OTPs ----------
   otps: {
     insert: async (o) => {
       await Otps.insertOne({
@@ -294,6 +311,110 @@ const db = {
       await Invites.deleteMany({});
       await Counters.deleteOne({ _id: "invites" });
     },
+  },
+
+  promos: {
+    insert: async (p) => {
+      const id = await nextId("promos");
+      const doc = {
+        id,
+        code: p.code.toUpperCase(),
+        discount_percent: Number(p.discount_percent) || 0,
+        discount_amount: Number(p.discount_amount) || 0,
+        active: true,
+        expires_at: p.expires_at ?? null,
+        created_at: new Date().toISOString(),
+        created_by: p.created_by ?? null,
+      };
+      await Promos.insertOne(doc);
+      return doc;
+    },
+    byCode: async (code) => strip(await Promos.findOne({ code: String(code).toUpperCase() })),
+    byId:   async (id)   => strip(await Promos.findOne({ id: Number(id) })),
+    all:    async ()     => (await Promos.find({}).sort({ created_at: -1 }).toArray()).map(strip),
+    update: async (id, patch) => {
+      const allowed = ["code", "discount_percent", "discount_amount", "expires_at", "active"];
+      const clean = {};
+      for (const k of allowed) if (patch[k] !== undefined) {
+        clean[k] = (k === "code") ? String(patch[k]).toUpperCase() : patch[k];
+      }
+      await Promos.updateOne({ id: Number(id) }, { $set: clean });
+      return db.promos.byId(id);
+    },
+    deleteById: async (id) => {
+      const r = await Promos.deleteOne({ id: Number(id) });
+      return r.deletedCount;
+    },
+    validate: async (code) => {
+      const p = await db.promos.byCode(code);
+      if (!p || !p.active) return null;
+      if (p.expires_at && new Date(p.expires_at) < new Date()) return null;
+      return p;
+    },
+    clear: async () => { await Promos.deleteMany({}); },
+  },
+
+  refunds: {
+    insert: async (r) => {
+      const id = await nextId("refunds");
+      const now = new Date().toISOString();
+      const doc = {
+        id,
+        reservation_id: r.reservation_id,
+        amount: Number(r.amount) || 0,
+        reason: r.reason || "",
+        method: r.method || "GCash",
+        reference_number: r.reference_number || null,
+        status: r.status || "pending",
+        requested_by: r.requested_by || null,
+        requested_at: now,
+        approved_by: r.approved_by || null,
+        approved_at: r.approved_at || null,
+        paid_by: null, paid_at: null,
+        rejected_by: null, rejected_at: null,
+        rejection_reason: null,
+      };
+      await Refunds.insertOne(doc);
+      return doc;
+    },
+    byId: async (id) => strip(await Refunds.findOne({ id: Number(id) })),
+    byReservation: async (resvId) =>
+      (await Refunds.find({ reservation_id: Number(resvId) }).sort({ requested_at: -1 }).toArray()).map(strip),
+    all: async () =>
+      (await Refunds.find({}).sort({ requested_at: -1 }).toArray()).map(strip),
+    byStatus: async (status) =>
+      (await Refunds.find({ status }).sort({ requested_at: -1 }).toArray()).map(strip),
+    approve: async (id, managerId) => {
+      await Refunds.updateOne({ id: Number(id) }, { $set: {
+        status: "approved",
+        approved_by: managerId,
+        approved_at: new Date().toISOString(),
+      }});
+      return db.refunds.byId(id);
+    },
+    reject: async (id, managerId, reason) => {
+      await Refunds.updateOne({ id: Number(id) }, { $set: {
+        status: "rejected",
+        rejected_by: managerId,
+        rejected_at: new Date().toISOString(),
+        rejection_reason: reason || null,
+      }});
+      return db.refunds.byId(id);
+    },
+    markPaid: async (id, adminId, reference_number) => {
+      await Refunds.updateOne({ id: Number(id) }, { $set: {
+        status: "paid",
+        paid_by: adminId,
+        paid_at: new Date().toISOString(),
+        reference_number: reference_number || null,
+      }});
+      return db.refunds.byId(id);
+    },
+    deleteById: async (id) => {
+      const r = await Refunds.deleteOne({ id: Number(id) });
+      return r.deletedCount;
+    },
+    clear: async () => { await Refunds.deleteMany({}); },
   },
 };
 
