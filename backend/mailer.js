@@ -1,125 +1,168 @@
-// server/mailer.js
-import nodemailer from "nodemailer";
+/* ============================================================
+   mailer.js — sends OTP + notification emails via Resend API
+   (HTTPS-based, works on Render's free tier)
+   ============================================================ */
 
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
-const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "Golden Villa";
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM_EMAIL = process.env.EMAIL_USER || "onboarding@resend.dev";
+const FROM_NAME = process.env.EMAIL_FROM_NAME || "Golden Villa Resort";
 
-let transporter = null;
-if (EMAIL_USER && EMAIL_APP_PASSWORD) {
-  transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_APP_PASSWORD.replace(/\s+/g, ""), // Gmail app passwords sometimes have spaces
+const FROM_HEADER = `${FROM_NAME} <${FROM_EMAIL}>`;
+
+async function sendEmail({ to, subject, html, text }) {
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not set");
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + RESEND_API_KEY,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      from: FROM_HEADER,
+      to: [to],
+      subject,
+      html,
+      text: text || undefined,
+    }),
   });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("[mailer] Resend error:", data);
+    throw new Error(data.message || data.error || "Failed to send email");
+  }
+  return data;
 }
 
-const FROM = `${EMAIL_FROM_NAME} <${EMAIL_USER || "no-reply@goldenvb.ph"}>`;
+/* ============================================================
+   OTP EMAIL
+   ============================================================ */
+export async function sendOtpEmail(toEmail, code, { name = "", purpose = "login" } = {}) {
+  const intro = purpose === "refund"
+    ? "You requested a refund verification for your booking."
+    : "Someone is trying to log into your Golden Villa staff account.";
 
-/* ---------- shared HTML shell ---------- */
-function shell(title, bodyHtml) {
-  return `
-    <div style="font-family:Asap,Arial,sans-serif;background:#FBF7EE;padding:32px 16px;">
-      <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;border:1px solid #eadfc9;box-shadow:0 4px 20px rgba(184,145,47,0.08)">
-        <p style="font-family:Fraunces,serif;font-size:22px;color:#2E5D46;margin:0 0 4px;">☀ Golden Villa Private Resort</p>
-        <p style="font-size:11px;letter-spacing:2px;color:#B8912F;margin:0 0 20px;text-transform:uppercase;">Malolos, Bulacan</p>
-        <h1 style="font-family:Fraunces,serif;font-size:22px;color:#2b2416;margin:0 0 16px;">${title}</h1>
-        ${bodyHtml}
-        <p style="font-size:12px;color:#8a7a55;margin-top:28px;border-top:1px solid #eadfc9;padding-top:16px;line-height:1.6;">
-          Golden Villa Private Resort · Malolos, Bulacan<br>
-          📞 0917 555 0101
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
+      <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
+      <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px; letter-spacing: 2px;">MALOLOS · BULACAN</p>
+
+      <p style="font-size: 15px; margin: 0 0 12px;">Hi ${name || "there"},</p>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px;">${intro} Enter this code to continue:</p>
+
+      <div style="text-align: center; padding: 24px; background: #FBF7EE; border-radius: 12px; margin: 24px 0;">
+        <p style="font-family: monospace; font-size: 36px; font-weight: 700; letter-spacing: 12px; color: #2b2416; margin: 0;">
+          ${code}
         </p>
       </div>
-    </div>`;
-}
 
-/* ---------- OTP email ---------- */
-export async function sendOtpEmail(to, code, { name, purpose } = {}) {
-  const subject = purpose === "login"
-    ? "Your Golden Villa login code"
-    : "Your Golden Villa verification code";
+      <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px;">
+        This code expires in <b>5 minutes</b>. If you didn't request it, you can safely ignore this email.
+      </p>
 
-  const body = `
-    <p style="font-size:15px;color:#4a3f2b;margin:0 0 12px;">Hi ${name || "there"},</p>
-    <p style="font-size:15px;color:#4a3f2b;margin:0 0 20px;">Use this 6-digit code to continue. It expires in 5 minutes.</p>
-    <p style="font-family:ui-monospace,monospace;font-size:34px;letter-spacing:12px;text-align:center;color:#B8912F;background:#FFF9E6;padding:18px;border-radius:12px;margin:0 0 20px;font-weight:700;">${code}</p>
-    <p style="font-size:13px;color:#8a7a55;margin:0;">If you didn't request this, you can ignore this email.</p>
-  `;
-
-  const html = shell("Verification code", body);
-
-  if (!transporter) {
-    console.log(`[mailer] (no email configured) would send OTP to ${to}: ${code}`);
-    return { ok: true, preview: true };
-  }
-
-  return transporter.sendMail({ from: FROM, to, subject, html });
-}
-
-/* ---------- Reservation voucher email ---------- */
-export async function sendReservationVoucherEmail(to, reservation, pkg) {
-  if (!to) return { ok: false, error: "no_email" };
-
-  const ref = reservation.ref || `GVB-2026-${String(reservation.id).padStart(4, "0")}`;
-  const dateLabel = new Date(reservation.date + "T00:00:00").toLocaleDateString("en-PH", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
-
-  const deposit = reservation.deposit_amount
-    ? "₱" + Number(reservation.deposit_amount).toLocaleString("en-PH")
-    : "—";
-
-  const subject = `Your Golden Villa booking — ${ref}`;
-
-  const body = `
-    <p style="font-size:15px;color:#4a3f2b;margin:0 0 16px;">Hi ${reservation.guest_name || "there"},</p>
-    <p style="font-size:15px;color:#4a3f2b;margin:0 0 20px;">
-      We received your deposit and your date is now on hold pending admin verification.
-      Here are your booking details:
-    </p>
-
-    <div style="background:#FFF9E6;border:2px dashed #B8912F;border-radius:14px;padding:20px;margin:0 0 20px;">
-      <p style="font-size:11px;letter-spacing:2px;color:#B8912F;margin:0 0 6px;text-transform:uppercase;font-weight:700;">Your reference number</p>
-      <p style="font-family:ui-monospace,monospace;font-size:26px;font-weight:700;color:#2b2416;margin:0 0 14px;letter-spacing:2px;">${ref}</p>
-      <p style="font-size:13px;color:#8a3a1a;margin:0;background:#FFF1E6;padding:10px;border-radius:8px;border-left:3px solid #C4572E;">
-        <b>Save this email.</b> You'll need this reference for check-in, refunds, or looking up your booking.
+      <hr style="border: none; border-top: 1px solid #eadfc9; margin: 24px 0;" />
+      <p style="font-size: 11px; color: #8a7a55; text-align: center; margin: 0;">
+        Golden Villa Private Resort · Malolos, Bulacan<br>
+        Do not reply to this email.
       </p>
     </div>
-
-    <table style="width:100%;font-size:14px;color:#2b2416;border-collapse:collapse;">
-      <tr><td style="padding:8px 0;color:#8a7a55;">Guest</td><td style="padding:8px 0;text-align:right;font-weight:600;">${reservation.guest_name || "—"}</td></tr>
-      <tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Mobile</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;">${reservation.guest_phone || "—"}</td></tr>
-      <tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Date</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;">${dateLabel}</td></tr>
-      <tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Package</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;">${pkg?.name || reservation.package_id}</td></tr>
-      <tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Guests</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;">${reservation.guests}</td></tr>
-      <tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Deposit</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;color:#2E5D46;">${deposit}</td></tr>
-      ${reservation.promo_code ? `<tr><td style="padding:8px 0;color:#8a7a55;border-top:1px solid #f0e7d2;">Promo</td><td style="padding:8px 0;text-align:right;font-weight:600;border-top:1px solid #f0e7d2;">${reservation.promo_code}</td></tr>` : ""}
-    </table>
-
-    <p style="font-size:14px;color:#4a3f2b;margin:24px 0 8px;">
-      <b>What's next?</b> Our admin will verify your deposit and you'll receive a follow-up email once your booking is confirmed.
-    </p>
-    <p style="font-size:13px;color:#8a7a55;margin:0;">
-      Need to change or cancel? Visit our website and click <b>Find my booking</b> — enter your reference number and name to manage it.
-    </p>
   `;
 
-  const html = shell("Your booking is on file", body);
+  const text = `Your Golden Villa ${purpose} code is: ${code}\n\nIt expires in 5 minutes.`;
 
-  if (!transporter) {
-    console.log(`[mailer] (no email configured) would send voucher for ${ref} to ${to}`);
-    return { ok: true, preview: true };
-  }
+  return sendEmail({
+    to: toEmail,
+    subject: `Your Golden Villa code: ${code}`,
+    html,
+    text,
+  });
+}
 
-  try {
-    const info = await transporter.sendMail({ from: FROM, to, subject, html });
-    return { ok: true, info };
-  } catch (err) {
-    console.error("[mailer] voucher send failed:", err.message);
-    return { ok: false, error: err.message };
-  }
+/* ============================================================
+   RESERVATION CONFIRMATION (received — pending verification)
+   ============================================================ */
+export async function sendReservationEmail(toEmail, reservation) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
+      <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
+      <p>Hi ${reservation.guest_name || "there"},</p>
+      <p>Your reservation has been received:</p>
+      <ul style="font-size: 14px; line-height: 1.8;">
+        <li><b>Reference:</b> ${reservation.ref || "pending approval"}</li>
+        <li><b>Date:</b> ${reservation.date}</li>
+        <li><b>Guests:</b> ${reservation.guests}</li>
+      </ul>
+      <p>We'll confirm once we verify your deposit.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject: "Golden Villa reservation received", html });
+}
+
+/* ============================================================
+   RESERVATION VOUCHER EMAIL — sent when admin approves a booking
+   ============================================================ */
+export async function sendReservationVoucherEmail(toEmail, reservation) {
+  const ref = reservation.ref || "GVB-2026-" + String(reservation.id || 0).padStart(4, "0");
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
+      <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
+      <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px; letter-spacing: 2px;">MALOLOS · BULACAN</p>
+
+      <p style="font-size: 15px; margin: 0 0 12px;">Hi ${reservation.guest_name || "there"},</p>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+        Your reservation is confirmed! Here's your voucher:
+      </p>
+
+      <div style="background: #FBF7EE; border: 1px solid #eadfc9; border-radius: 14px; padding: 20px; margin: 20px 0;">
+        <p style="font-family: Georgia, serif; font-size: 18px; color: #B8912F; margin: 0 0 6px;">Reservation Voucher</p>
+        <p style="font-family: monospace; font-size: 18px; font-weight: 700; color: #2b2416; margin: 0 0 16px;">
+          ${ref}
+        </p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>Guest:</b> ${reservation.guest_name || "—"}</p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>Date:</b> ${reservation.date || "—"}</p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>Guests:</b> ${reservation.guests || "—"}</p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>Deposit:</b> ₱${Number(reservation.deposit_amount || 0).toLocaleString("en-PH")}</p>
+      </div>
+
+      <p style="font-size: 13px; color: #8a7a55; margin: 0 0 24px;">
+        Present this reference at the gate. Need to cancel? Visit our website and use
+        <b>Find my booking</b> to request a refund (up to 7 days before your check-in date).
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #eadfc9; margin: 24px 0;" />
+      <p style="font-size: 11px; color: #8a7a55; text-align: center; margin: 0;">
+        Golden Villa Private Resort · Malolos, Bulacan<br>
+        Do not reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = `Your Golden Villa reservation is confirmed.\nReference: ${ref}\nDate: ${reservation.date}\n\nPresent this reference at the gate.`;
+
+  return sendEmail({
+    to: toEmail,
+    subject: `Golden Villa reservation confirmed — ${ref}`,
+    html,
+    text,
+  });
+}
+
+/* ============================================================
+   REFUND STATUS EMAIL — sent when a refund is approved/paid
+   ============================================================ */
+export async function sendRefundStatusEmail(toEmail, refund, reservation) {
+  const ref = reservation?.ref || "GVB-2026-" + String(reservation?.id || 0).padStart(4, "0");
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #2b2416;">
+      <h2 style="font-family: Georgia, serif; color: #B8912F; margin: 0 0 8px;">Golden Villa Private Resort</h2>
+      <p>Hi ${reservation?.guest_name || "there"},</p>
+      <p>Your refund for reservation <b>${ref}</b> has been <b>${refund.status}</b>.</p>
+      <p><b>Amount:</b> ₱${Number(refund.amount || 0).toLocaleString("en-PH")}</p>
+      <p><b>Method:</b> ${refund.method}</p>
+      ${refund.reference_number ? `<p><b>Reference:</b> ${refund.reference_number}</p>` : ""}
+      <p>Thank you for choosing Golden Villa.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject: `Golden Villa refund ${refund.status}`, html });
 }
