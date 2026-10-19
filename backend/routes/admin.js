@@ -12,32 +12,60 @@ function makeCode() {
   return `GVB-${block(4)}-${block(2)}`;
 }
 
+// ============================================
+// 1. AUTH RATE LIMITING
+// ============================================
+const rateLimitMap = new Map();
+function rateLimit(req, res, limit = 5, windowMs = 60000) {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const now = Date.now();
+  
+  if (!rateLimitMap.has(ip)) rateLimitMap.set(ip, []);
+  const timestamps = rateLimitMap.get(ip).filter(t => now - t < windowMs);
+  
+  if (timestamps.length >= limit) {
+    res.status(429).json({ error: "Too many requests. Please try again later." });
+    return false; 
+  }
+  
+  timestamps.push(now);
+  rateLimitMap.set(ip, timestamps);
+  return true; 
+}
+
 // ---------- create invite ----------
 r.post("/api/admin/invites", requireAuth, requireRole("admin"), async (req, res) => {
-  const { email, name, role } = req.body || {};
-  if (!email) return res.status(400).json({ error: "Email is required" });
-  if (!["admin", "manager", "caretaker"].includes(role))
-    return res.status(400).json({ error: "Role must be 'admin', 'manager', or 'caretaker'" });
+  if (!rateLimit(req, res, 10)) return;
 
-  const lower = email.toLowerCase();
-  if (await db.users.byEmail(lower))
-    return res.status(409).json({ error: "That email is already registered" });
+  try {
+    const { email, name, role } = req.body || {};
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    if (!["admin", "manager", "caretaker"].includes(role))
+      return res.status(400).json({ error: "Role must be 'admin', 'manager', or 'caretaker'" });
 
-  const expires_at = new Date(Date.now() + 24 * 3600e3).toISOString();
-  const code = makeCode();
+    const lower = email.toLowerCase();
+    if (await db.users.byEmail(lower))
+      return res.status(409).json({ error: "That email is already registered" });
 
-  const invite = await db.invites.insert({
-    code, email: lower, name: name || null, role,
-    created_by: req.user.id, expires_at,
-  });
+    const expires_at = new Date(Date.now() + 24 * 3600e3).toISOString();
+    const code = makeCode();
 
-  res.status(201).json({
-    invite: {
-      id: invite.id, code: invite.code, email: invite.email,
-      name: invite.name, role: invite.role, expires_at: invite.expires_at,
-    },
-    note: "Send this code to the applicant. It will not be shown again.",
-  });
+    const invite = await db.invites.insert({
+      code, email: lower, name: name || null, role,
+      created_by: req.user.id, expires_at,
+    });
+
+    res.status(201).json({
+      invite: {
+        id: invite.id, code: invite.code, email: invite.email,
+        name: invite.name, role: invite.role, expires_at: invite.expires_at,
+      },
+      note: "Send this code to the applicant. It will not be shown again.",
+    });
+  } catch (err) {
+    console.error("[admin] invite creation failed:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ---------- list invites ----------
@@ -55,50 +83,64 @@ r.post("/api/admin/invites/:id/revoke", requireAuth, requireRole("admin"), async
   res.json({ ok: true });
 });
 
-// ---------- list users ----------
-// By default, hides status: "removed" (soft-deleted workers).
-
+// ---------- list users (TABS SYSTEM) ----------
 r.get("/api/admin/users", requireAuth, requireRole("admin"), async (req, res) => {
   const all = await db.users.all();
 
-  // Parse query string manually since micro.js doesn't populate req.query
-  let includeRemoved = false;
+  // Parse the "tab" from the URL (default is 'active')
+  let tab = "active";
   if (req.url && req.url.includes("?")) {
     const qs = req.url.split("?")[1];
     const params = new URLSearchParams(qs);
-    includeRemoved = params.get("include_removed") === "1";
+    tab = params.get("tab") || "active";
   }
 
-  const filtered = includeRemoved ? all : all.filter((u) => u.status !== "removed");
+  // If tab is archived, show ONLY archived. If active, show EVERYTHING ELSE.
+  const filtered = tab === "archived" 
+    ? all.filter((u) => u.status === "archived")
+    : all.filter((u) => u.status !== "archived");
+
   const safe = filtered.map(({ password_hash, ...u }) => u);
   res.json({ users: safe });
 });
 
-// ---------- update user status ----------
+// ---------- update user status (with email freeing) ----------
 r.post("/api/admin/users/:id/status", requireAuth, requireRole("admin"), async (req, res) => {
-  const { status } = req.body || {};
-  const allowed = ["active", "suspended", "banned", "removed"];
-  if (!allowed.includes(status))
-    return res.status(400).json({ error: `status must be one of: ${allowed.join(", ")}` });
+  if (!rateLimit(req, res, 10)) return;
 
-  const target = await db.users.byId(req.params.id);
-  if (!target) return res.status(404).json({ error: "User not found" });
+  try {
+    const { status } = req.body || {};
+    const allowed = ["active", "suspended", "banned", "archived"];
+    if (!allowed.includes(status))
+      return res.status(400).json({ error: `status must be one of: ${allowed.join(", ")}` });
 
-  // Cannot modify another admin
-  if (target.role === "admin" && target.id !== req.user.id)
-    return res.status(403).json({ error: "Cannot modify another admin" });
+    const target = await db.users.byId(req.params.id);
+    if (!target) return res.status(404).json({ error: "User not found" });
 
-  // Cannot remove or suspend yourself
-  if (target.id === req.user.id && (status === "removed" || status === "suspended" || status === "banned"))
-    return res.status(403).json({ error: "You cannot remove or suspend your own account" });
+    if (target.role === "admin" && target.id !== req.user.id)
+      return res.status(403).json({ error: "Cannot modify another admin" });
 
-  // Cannot remove an admin
-  if (status === "removed" && target.role === "admin")
-    return res.status(403).json({ error: "Admins cannot be removed" });
+    if (target.id === req.user.id && (status === "archived" || status === "suspended" || status === "banned"))
+      return res.status(403).json({ error: "You cannot archive or suspend your own account" });
 
-  const updated = await db.users.updateStatus(target.id, status);
-  const { password_hash, ...safe } = updated;
-  res.json({ user: safe });
+    if (status === "archived" && target.role === "admin")
+      return res.status(403).json({ error: "Admins cannot be archived" });
+
+    let patch = { status };
+
+    // ⬇️ FREE UP THE EMAIL WHEN ARCHIVING ⬇️
+    if (status === "archived" && target.status !== "archived") {
+      const timestamp = Date.now();
+      patch.email = `${target.email}_archived_${timestamp}`;
+    }
+
+    const updated = await db.users.update(target.id, patch);
+    const { password_hash, ...safe } = updated;
+    res.json({ user: safe });
+  } catch (err) {
+    console.error("[admin] status update failed:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // ---------- history ----------
@@ -184,21 +226,26 @@ r.get("/api/admin/deletions", requireAuth, requireRole("admin"), async (req, res
 
 // ---------- PROMOS ----------
 r.post("/api/admin/promos", requireAuth, requireRole("admin"), async (req, res) => {
-  const { code, discount_percent, discount_amount, expires_at } = req.body || {};
-  if (!code) return res.status(400).json({ error: "Promo code is required" });
-  if (await db.promos.byCode(code))
-    return res.status(409).json({ error: "That promo code already exists" });
-  if (!discount_percent && !discount_amount)
-    return res.status(400).json({ error: "Provide either discount_percent or discount_amount" });
+  try {
+    const { code, discount_percent, discount_amount, expires_at } = req.body || {};
+    if (!code) return res.status(400).json({ error: "Promo code is required" });
+    if (await db.promos.byCode(code))
+      return res.status(409).json({ error: "That promo code already exists" });
+    if (!discount_percent && !discount_amount)
+      return res.status(400).json({ error: "Provide either discount_percent or discount_amount" });
 
-  const promo = await db.promos.insert({
-    code,
-    discount_percent: Number(discount_percent) || 0,
-    discount_amount: Number(discount_amount) || 0,
-    expires_at: expires_at || null,
-    created_by: req.user.id,
-  });
-  res.status(201).json({ promo });
+    const promo = await db.promos.insert({
+      code,
+      discount_percent: Number(discount_percent) || 0,
+      discount_amount: Number(discount_amount) || 0,
+      expires_at: expires_at || null,
+      created_by: req.user.id,
+    });
+    res.status(201).json({ promo });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 r.get("/api/admin/promos", requireAuth, requireRole("admin"), async (req, res) => {

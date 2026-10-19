@@ -42,6 +42,8 @@ r.get("/api/reports/summary", requireAuth, requireRole("admin"), async (req, res
         date: x.date,
         guest: x.guest_name || uMap[x.user_id]?.name,
         package: pMap[x.package_id]?.name,
+        package_Id: x.package_id,
+        price: pMap[x.package_id]?.price || 0,
       })),
   });
 });

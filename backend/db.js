@@ -80,6 +80,10 @@ const db = {
       await Users.updateOne({ id: Number(id) }, { $set: { status } });
       return db.users.byId(id);
     },
+    update: async (id, patch) => {
+      await Users.updateOne({ id: Number(id) }, { $set: patch });
+      return db.users.byId(id);
+    },
     clear: async () => {
       await Users.deleteMany({});
       await Counters.deleteOne({ _id: "users" });

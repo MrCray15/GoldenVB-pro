@@ -37,8 +37,13 @@ r.post("/api/auth/login", async (req, res) => {
   if (!verifyPassword(password, user.password_hash))
     return res.status(401).json({ error: "Wrong email or password" });
 
-  // ⬇️ BLOCK SUSPENDED / BANNED USERS
+    // ⬇️ BLOCK SUSPENDED / BANNED USERS
   if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
+  // ⬇️ BLOCK PENDING CARETAKERS (Awaiting Admin Approval)
+  if (user.status === "pending") {
+    return res.status(403).json({ error: "Your account is pending admin approval. Please wait." });
+  }
 
   // ---- staff 2FA ----
   if (OTP_ROLES.includes(user.role)) {
@@ -79,6 +84,11 @@ r.post("/api/auth/otp/verify", async (req, res) => {
   // ⬇️ BLOCK SUSPENDED / BANNED USERS (defense in depth — could have been banned mid-OTP)
   if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
 
+  // ⬇️ BLOCK PENDING CARETAKERS (Awaiting Admin Approval)
+  if (user.status === "pending") {
+    return res.status(403).json({ error: "Your account is pending admin approval. Please wait." });
+  }
+
   const record = await db.otps.latestFor(user.email, "login");
   if (!record) return res.status(400).json({ error: "No active code. Please log in again." });
 
@@ -112,6 +122,11 @@ r.post("/api/auth/otp/resend", async (req, res) => {
 
   // ⬇️ BLOCK SUSPENDED / BANNED USERS
   if (isBlocked(user)) return res.status(403).json({ error: blockMessage(user) });
+
+  // ⬇️ BLOCK PENDING CARETAKERS (Awaiting Admin Approval)
+  if (user.status === "pending") {
+    return res.status(403).json({ error: "Your account is pending admin approval. Please wait." });
+  }
 
   try {
     const code = generateOtp();
@@ -149,7 +164,7 @@ r.post("/api/auth/guest", async (req, res) => {
 });
 
 // ============================================================
-// CARETAKER SELF-REGISTRATION
+// CARETAKER SELF-REGISTRATION (Needs Admin Approval)
 // ============================================================
 r.post("/api/auth/register-caretaker", async (req, res) => {
   const { name, email, password, phone } = req.body || {};
@@ -160,12 +175,20 @@ r.post("/api/auth/register-caretaker", async (req, res) => {
   if (await db.users.byEmail(email.toLowerCase()))
     return res.status(409).json({ error: "That email is already registered" });
 
+  // Create the user, but force the status to "pending"
   const user = await db.users.insert({
-    name, email: email.toLowerCase(),
+    name, 
+    email: email.toLowerCase(),
     password_hash: hashPassword(password),
-    role: "caretaker", phone: phone || null,
+    role: "caretaker", 
+    phone: phone || null,
+    status: "pending" // force pending approval
   });
-  res.status(201).json({ user: pub(user), token: sign(user) });
+  
+  // Note: We DO NOT return a token. They cannot log in yet.
+  res.status(201).json({ 
+    message: "Registration successful. Please wait for the admin to approve your account." 
+  });
 });
 
 // ============================================================
