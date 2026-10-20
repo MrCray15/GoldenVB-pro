@@ -10,6 +10,9 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const MONTHS_SHORT = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 const DOW = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
+// ⬇️ THIS IS THE MISSING LINE THAT FIXES EVERYTHING ⬇️
+const API_BASE = "https://goldenvb-pro-1.onrender.com";
+
 function getToken() { return localStorage.getItem("gvb_token"); }
 function getUser() {
   try { return JSON.parse(localStorage.getItem("gvb_user")); } catch { return null; }
@@ -27,6 +30,7 @@ async function api(path, method, body) {
   const options = { method: method || "GET", headers: { "Content-Type": "application/json" } };
   if (getToken()) options.headers["Authorization"] = "Bearer " + getToken();
   if (body) options.body = JSON.stringify(body);
+  // ⬇️ THIS LINE MUST SAY API_BASE + path ⬇️
   const res = await fetch(API_BASE + path, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Something went wrong");
