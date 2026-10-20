@@ -70,7 +70,6 @@
     .landing-footer a { color: #B8912F; text-decoration: none; }
     .landing-footer a:hover { text-decoration: underline; }
 
-    /* ============= FIND MY BOOKING (public, with OTP) ============= */
     .lookup-box { background: #fff; border: 1px solid #eadfc9; border-radius: 20px; padding: 32px; box-shadow: 0 8px 30px rgba(184,145,47,0.10); max-width: 640px; margin: 0 auto; }
     .lookup-box h3 { font-family: Fraunces, serif; font-size: 26px; color: #2b2416; margin: 0 0 6px; }
     .lookup-box .sub { color: #8a7a55; font-size: 14px; margin: 0 0 20px; }
@@ -133,73 +132,10 @@
     .tour-video-slot.mini .tour-mini-close { display: block; }
     .tour-slot-placeholder { border-radius: 20px; background: #000; opacity: 0; pointer-events: none; }
     @media (max-width: 600px) { .tour-video-slot.mini { height: 200px; bottom: 12px; right: 12px; } }
-    
-        /* ============= VOUCHER SAVE NOTICE ============= */
-    .voucher-save-notice {
-      background: #FFF9E6;
-      border: 2px dashed #B8912F;
-      border-radius: 16px;
-      padding: 22px 24px;
-      margin-top: 22px;
-      max-width: 520px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .voucher-save-notice .vsn-title {
-      font-family: Fraunces, serif;
-      font-size: 18px;
-      color: #B8912F;
-      margin: 0 0 10px;
-      font-weight: 600;
-    }
-    .voucher-save-notice .vsn-body {
-      font-size: 14px;
-      color: #4a3f2b;
-      margin: 0 0 10px;
-    }
-    .voucher-save-notice .vsn-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 14px;
-      font-size: 14px;
-      color: #4a3f2b;
-    }
-    .voucher-save-notice .vsn-list li {
-      padding: 4px 0;
-    }
-    .voucher-save-notice .vsn-warn {
-      font-size: 13px;
-      color: #8a3a1a;
-      background: #FFF1E6;
-      border-left: 3px solid #C4572E;
-      padding: 10px 12px;
-      border-radius: 6px;
-      margin: 0 0 14px;
-      line-height: 1.5;
-    }
-    .voucher-save-notice .vsn-copy-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .voucher-save-notice #vsn-ref-input {
-      flex: 1;
-      padding: 10px 14px;
-      font-family: ui-monospace, monospace;
-      font-size: 15px;
-      letter-spacing: 1px;
-      background: #fff;
-      border: 1.5px solid #eadfc9;
-      border-radius: 8px;
-      color: #2b2416;
-      text-align: center;
-      font-weight: 700;
-    }
-    .voucher-save-notice #vsn-copy-btn {
-      padding: 10px 20px;
-      white-space: nowrap;
-      font-size: 14px;
-    }
+
+    .status-chip.status-approved { background-color: #d1fae5 !important; color: #065f46 !important; font-weight: bold; }
+    .status-chip.status-cancelled, .status-chip.status-rejected { background-color: #fee2e2 !important; color: #991b1b !important; font-weight: bold; }
+    .status-chip.status-verify { background-color: #fef3c7 !important; color: #92400e !important; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -236,7 +172,7 @@
       </form>
 
       <button type="button" id="show-lookup-from-login" class="link-btn" style="margin-top:10px">Find my booking →</button>
-      <button type="button" id="show-register" class="link-btn" style="margin-top:4px">New caretaker? Register here</button>
+      <button type="button" id="show-register" class="link-btn" style="margin-top:4px">New caretaker? Apply here for approval</button>
       <button type="button" id="show-invite" class="link-btn" style="margin-top:4px">Have an invite code? Apply here</button>
       <button type="button" id="back-to-landing" class="link-btn" style="margin-top:16px; color:#8a7a55;">← Back to homepage</button>
 
@@ -265,11 +201,10 @@
     </div>
   </div>
 
-  <!-- FIND MY BOOKING (with OTP) -->
+  <!-- FIND MY BOOKING -->
   <div id="lookup-screen" class="login-screen hidden">
     <div class="lookup-box">
       <h3>Find my booking</h3>
-
       <div id="lk-step-a">
         <p class="sub">Enter the reference number from your voucher and the name you booked under.</p>
         <label for="lk-ref">Reference number</label>
@@ -279,7 +214,6 @@
         <p id="lk-error" class="error hidden"></p>
         <button type="button" id="lk-search" class="btn btn-gold btn-full">Send verification code</button>
       </div>
-
       <div id="lk-step-b" class="hidden">
         <p class="sub" id="lk-otp-msg">Enter the 6-digit code we sent you.</p>
         <label for="lk-otp">Verification code</label>
@@ -292,12 +226,10 @@
         </div>
         <p id="lk-otp-info" class="otp-note"></p>
       </div>
-
       <div id="lk-step-c" class="hidden">
         <div class="lookup-result" id="lk-result"></div>
         <button type="button" id="lk-start-over" class="link-btn" style="margin-top:14px; color:#8a7a55;">← Look up another booking</button>
       </div>
-
       <p class="lookup-hint">Don't have your reference? <a href="tel:09175550101">Call 0917 555 0101</a> and we'll help you.</p>
       <button type="button" id="lookup-back" class="link-btn" style="margin-top:16px; color:#8a7a55;">← Back to homepage</button>
     </div>
@@ -475,9 +407,9 @@
           <h3 class="panel-title">Who's coming?</h3>
           <p class="panel-sub">We'll email your voucher and refund options here — so please use a real email.</p>
           <div class="form-col">
-            <label>Full name (Required) <input id="f-name" required /></label>
+            <label>Full name <input id="f-name" /></label>
             <label>Mobile number <input id="f-phone" /></label>
-            <label>Email (Required) <input id="f-email" type="email" required /></label>
+            <label>Email <input id="f-email" type="email" required /></label>
           </div>
         </div>
 
@@ -550,21 +482,19 @@
 
       <!-- ADMIN -->
       <section id="view-admin" class="view hidden">
-        <div class="view-head">
-          <div>
-            <h3 class="panel-title big">Reservation queue</h3>
-            <p class="panel-sub">Live from the reservations table. Refreshes every 5 seconds.</p>
-          </div>
-          <span class="chip chip-gold" id="verify-count"></span>
-        </div>
         <p id="admin-error" class="error hidden"></p>
-        <div class="admin-grid">
-          <div id="queue-list" class="queue-list"></div>
-          <div id="queue-detail" class="card detail-panel"></div>
+
+        <!-- SUMMARY DATA FIRST (with Time Filters) -->
+        <h3 class="panel-title big">Business overview</h3>
+        <p class="panel-sub">Live aggregates from the reservation database.</p>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+          <button class="btn btn-outline-terra" onclick="setReportTimeframe('today', this)">Today</button>
+          <button class="btn btn-outline-terra" onclick="setReportTimeframe('week', this)">This Week</button>
+          <button class="btn btn-outline-terra" onclick="setReportTimeframe('month', this)">This Month</button>
+          <button class="btn btn-gold" onclick="setReportTimeframe('all', this)">All Time</button>
         </div>
 
-        <h3 class="panel-title big" style="margin-top:44px">Business overview</h3>
-        <p class="panel-sub">Live aggregates from the reservation database.</p>
         <p id="owner-error" class="error hidden"></p>
         <div class="stat-grid" id="stat-grid"></div>
         <div class="owner-grid">
@@ -580,6 +510,20 @@
             <p class="label" style="margin-top:16px">UPCOMING GUESTS</p>
             <div id="upcoming-list"></div>
           </div>
+        </div>
+
+        <!-- RESERVATION QUEUE SECOND -->
+        <div class="view-head" style="margin-top:44px">
+          <div>
+            <h3 class="panel-title big">Reservation queue</h3>
+            <p class="panel-sub">Live from the reservations table. Refreshes every 5 seconds.</p>
+          </div>
+          <span class="chip chip-gold" id="verify-count"></span>
+        </div>
+        
+        <div class="admin-grid">
+          <div id="queue-list" class="queue-list"></div>
+          <div id="queue-detail" class="card detail-panel"></div>
         </div>
 
         <h3 class="panel-title big" style="margin-top:44px">Promo codes</h3>
@@ -600,7 +544,7 @@
         </div>
 
         <h3 class="panel-title big" style="margin-top:44px">User accounts</h3>
-        <p class="panel-sub">Suspend or reactivate staff and customer accounts.</p>
+        <p class="panel-sub">Suspend, archive, or reactivate staff accounts.</p>
         <div class="card" id="user-list"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Refunds</h3>
@@ -685,6 +629,7 @@
         <div class="card" id="mgr-schedule-list"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Payments</h3>
+        <p class="panel-sub">Every deposit on file. Verify pending ones from the queue above.</p>
         <div class="card" id="mgr-payments-list"></div>
 
         <h3 class="panel-title big" style="margin-top:44px">Refund requests</h3>
@@ -728,6 +673,20 @@
       <footer class="foot">GoldenVB Pro · System Analysis &amp; Design case study · Capua, Del Rosario, Palabay · Sept 2026</footer>
     </div>
   </div>
+
+  <!-- CUSTOM ARCHIVE CONFIRMATION MODAL -->
+  <dialog id="archive-modal" style="border: none; border-radius: 16px; padding: 0; box-shadow: 0 20px 50px rgba(0,0,0,0.2); max-width: 400px; width: 90%; background: #FBF7EE; margin: auto;">
+    <div style="padding: 24px; text-align: center;">
+      <h3 style="font-family: Fraunces, serif; font-size: 22px; color: #2b2416; margin: 0 0 12px;" id="arch-modal-title">Archive Worker?</h3>
+      <p style="font-size: 14px; color: #5c4a2a; margin: 0 0 24px; line-height: 1.5;">
+        They will no longer be able to log in. Their past reservations and audit records will still keep their name.
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button type="button" onclick="document.getElementById('archive-modal').close()" class="btn btn-ghost" style="flex: 1;">Cancel</button>
+        <button type="button" id="arch-modal-confirm" class="btn btn-outline-terra" style="flex: 1;">Yes, Archive</button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

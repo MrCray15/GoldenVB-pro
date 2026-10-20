@@ -1,5 +1,5 @@
 /* ============================================================
-   Golden VB — frontend 
+   Golden VB — frontend logic
    ============================================================ */
 
 const $ = (id) => document.getElementById(id);
@@ -23,13 +23,11 @@ function clearSession() {
   localStorage.removeItem("gvb_user");
 }
 
-const API_BASE = "https://goldenvb-pro-1.onrender.com";
-
 async function api(path, method, body) {
   const options = { method: method || "GET", headers: { "Content-Type": "application/json" } };
   if (getToken()) options.headers["Authorization"] = "Bearer " + getToken();
   if (body) options.body = JSON.stringify(body);
-  const res = await fetch(API_BASE + path, options);
+  const res = await fetch(path, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Something went wrong");
   return data;
@@ -57,6 +55,8 @@ let mgrCalendarDays = [];
 let mgrPickedDate = null;
 let adminHistory = [];
 let adminHistoryFilter = "all";
+let adminHistoryLimit = 10;
+let showArchivedUsers = false;
 let otpEmail = null;
 let appliedPromo = null;
 
@@ -198,7 +198,6 @@ function showLookup() {
   $("login-screen").classList.add("hidden");
   $("app-shell").classList.add("hidden");
   $("lookup-screen").classList.remove("hidden");
-  // Reset to step A
   lkState = { ref: "", name: "", refundToken: null };
   $("lk-ref").value = ""; $("lk-name").value = "";
   $("lk-otp").value = "";
@@ -400,7 +399,6 @@ function renderLookupResult(data) {
   }
 
   box.innerHTML = html;
-
   const btn = document.getElementById("lk-refund-btn");
   if (btn) btn.addEventListener("click", submitLookupRefund);
 }
@@ -430,7 +428,6 @@ async function submitLookupRefund() {
   }
 }
 
-/* Lookup event wiring */
 $("lk-search").addEventListener("click", lkStart);
 $("lk-verify").addEventListener("click", lkVerify);
 $("lk-resend").addEventListener("click", lkResend);
@@ -540,20 +537,36 @@ $("cancel-register").addEventListener("click", () => showLogin());
 
 $("register-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  $("register-error").classList.add("hidden");
+  const errorEl = $("register-error");
+  errorEl.classList.add("hidden");
+
   try {
-    const data = await api("/api/auth/register-caretaker", "POST", {
+    await api("/api/auth/register-caretaker", "POST", {
       name: $("reg-name").value,
       email: $("reg-email").value,
       password: $("reg-password").value,
       phone: $("reg-phone").value || null,
     });
-    setSession(data.token, data.user);
-    user = data.user;
-    showApp();
+    
+    $("reg-name").value = "";
+    $("reg-email").value = "";
+    $("reg-password").value = "";
+    $("reg-phone").value = "";
+    $("register-form").classList.add("hidden");
+    
+    errorEl.textContent = "✓ Registration successful! Please wait for the Admin to approve your account before logging in.";
+    errorEl.style.color = "var(--green)"; 
+    errorEl.style.background = "#E6F0EA";  
+    errorEl.style.padding = "12px";
+    errorEl.style.borderRadius = "8px";
+    errorEl.style.textAlign = "center";
+    errorEl.classList.remove("hidden");
+
+    setTimeout(() => showLogin(), 4000);
+
   } catch (err) {
-    $("register-error").textContent = err.message;
-    $("register-error").classList.remove("hidden");
+    errorEl.textContent = err.message;
+    errorEl.classList.remove("hidden");
   }
 });
 
@@ -870,7 +883,6 @@ function renderVoucher() {
     </div>
   `;
 
-  // Wire up the copy button
   const copyBtn = document.getElementById("vsn-copy-btn");
   if (copyBtn) {
     copyBtn.addEventListener("click", async () => {
@@ -919,7 +931,6 @@ async function renderVisits() {
   } catch {}
 }
 
-/* Customer refund request (from voucher page) */
 document.addEventListener("click", async (e) => {
   if (e.target && e.target.id === "refund-request-btn") {
     const msg = $("refund-msg");
@@ -953,7 +964,7 @@ const fmtHoldLeft = (expiresAt) => {
   return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " left";
 };
 
-const STATUS_LABELS = { verify: "Verify deposit", hold: "On hold", approved: "Approved", rejected: "Rejected", cancelled: "Cancelled", completed: "Completed", scheduled: "Scheduled", arrived: "Arrived", no_show: "No-show" };
+const STATUS_LABELS = { verify: "Verify deposit", hold: "On hold", approved: "Approved", rejected: "Rejected", cancelled: "Cancelled", completed: "Completed", scheduled: "Scheduled", arrived: "Arrived", no_show: "No-show", pending: "Pending" };
 
 async function loadAdmin() {
   try {
@@ -1116,39 +1127,55 @@ window.deletePromo = async (id) => {
 };
 
 /* USERS */
-/* USERS */
 async function loadUsers() {
   try {
-    const data = await api("/api/admin/users");
-    $("user-list").innerHTML = data.users.length ? data.users.map((u) => {
+    const url = showArchivedUsers ? "/api/admin/users?tab=archived" : "/api/admin/users?tab=active";
+    const data = await api(url);
+    
+    const toggleHTML = `
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #eadfc9; padding-bottom: 12px;">
+        <button class="btn ${!showArchivedUsers ? 'btn-gold' : 'btn-outline-terra'}" onclick="showArchivedUsers = false; loadUsers();">Active Workers</button>
+        <button class="btn ${showArchivedUsers ? 'btn-gold' : 'btn-outline-terra'}" onclick="showArchivedUsers = true; loadUsers();">Archived Workers</button>
+      </div>
+    `;
+
+    $("user-list").innerHTML = toggleHTML + (data.users.length ? data.users.map((u) => {
       const status = u.status || "active";
       const isAdmin = u.role === "admin";
       const isSelf = user && u.id === user.id;
 
-      // Action buttons — only show what's allowed
       const actions = [];
 
-      if (status === "suspended" || status === "banned") {
-        actions.push(`<button class="btn btn-green" onclick="setUserStatus(${u.id}, 'active')">Reactivate</button>`);
-      } else if (status === "active") {
-        if (!isSelf) actions.push(`<button class="btn btn-outline-terra" onclick="setUserStatus(${u.id}, 'suspended')">Suspend</button>`);
-      }
+      if (status === "pending") {
+        actions.push(`<button class="btn btn-green" onclick="setUserStatus(${u.id}, 'active')">Approve</button>`);
+        actions.push(`<button class="btn btn-outline-terra" onclick="archiveWorker(${u.id}, '${u.name.replace(/'/g, "\\'")}')">Reject</button>`);
+      } 
 
-      // Remove button — hidden for admins, hidden for yourself, hidden if already removed
-      if (!isAdmin && !isSelf && status !== "removed") {
-        actions.push(`<button class="btn btn-outline-terra" onclick="removeWorker(${u.id}, '${u.name.replace(/'/g, "\\'")}')">Remove</button>`);
+      if (status === "archived") {
+        actions.push(`<button class="btn btn-green" onclick="setUserStatus(${u.id}, 'active')">Restore</button>`);
+      } else if (status !== "pending") { 
+        if (status === "suspended" || status === "banned") {
+          actions.push(`<button class="btn btn-green" onclick="setUserStatus(${u.id}, 'active')">Reactivate</button>`);
+        } else if (status === "active") {
+          if (!isSelf) actions.push(`<button class="btn btn-outline-terra" onclick="setUserStatus(${u.id}, 'suspended')">Suspend</button>`);
+        }
+
+        if (!isAdmin && !isSelf) {
+          actions.push(`<button class="btn btn-outline-terra" onclick="archiveWorker(${u.id}, '${u.name.replace(/'/g, "\\'")}')">Archive</button>`);
+        }
       }
 
       return `
-        <div class="invite-row" style="grid-template-columns: 1fr 1fr 120px 180px 260px;align-items:center;gap:8px">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px 200px; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid #eadfc9; ${status === 'archived' ? 'opacity: 0.6;' : ''}">
           <span><b>${u.name}</b>${isSelf ? ' <span class="muted">(you)</span>' : ''}</span>
-          <span>${u.email}</span>
-          <span class="status-pill status-${status === "removed" ? "revoked" : status}">${u.role}</span>
-          <span class="status-pill status-${status === "removed" ? "revoked" : status}">${status}</span>
-          <span style="display:flex;gap:6px;flex-wrap:wrap">${actions.join("")}</span>
+          <span style="color: #5c4a2a;">${u.email}</span>
+          <span><span class="status-pill status-${status === "archived" ? "revoked" : status}">${u.role}</span></span>
+          <span><span class="status-pill status-${status === "archived" ? "revoked" : status}">${status}</span></span>
+          <span style="display:flex; gap:6px; justify-content: flex-end;">${actions.join("")}</span>
         </div>
       `;
-    }).join("") : '<p class="muted">No users yet.</p>';
+    }).join("") : '<p class="muted">No users found.</p>');
+
   } catch (err) { $("user-list").innerHTML = `<p class="error">${err.message}</p>`; }
 }
 
@@ -1158,14 +1185,24 @@ window.setUserStatus = async (id, status) => {
   catch (err) { alert(err.message); }
 };
 
-/* Remove worker (soft delete) */
-window.removeWorker = async (id, name) => {
-  if (!confirm(`Remove ${name}?\n\nThey will no longer be able to log in. Their past reservations and audit records will still keep their name.`)) return;
-  try {
-    await api(`/api/admin/users/${id}/status`, "POST", { status: "removed" });
-    loadUsers();
-    loadAdminHistory(); // refresh the history so you can see it's preserved
-  } catch (err) { alert(err.message); }
+window.archiveWorker = (id, name) => {
+  const modal = document.getElementById("archive-modal");
+  const title = document.getElementById("arch-modal-title");
+  const confirmBtn = document.getElementById("arch-modal-confirm");
+
+  title.textContent = `Archive ${name}?`;
+  modal.showModal();
+
+  confirmBtn.onclick = async () => {
+    modal.close();
+    try {
+      await api(`/api/admin/users/${id}/status`, "POST", { status: "archived" });
+      loadUsers();
+      loadAdminHistory(); 
+    } catch (err) { 
+      alert(err.message); 
+    }
+  };
 };
 
 /* INVITES */
@@ -1200,7 +1237,7 @@ async function loadInvites() {
   } catch (err) { $("invite-list").innerHTML = `<p class="error">${err.message}</p>`; }
 }
 
-/* HISTORY */
+/* HISTORY (with Show More & Search) */
 async function loadAdminHistory() {
   try {
     const data = await api("/api/admin/history");
@@ -1217,7 +1254,8 @@ function renderHistoryFilters() {
   document.querySelectorAll("[data-hfilter]").forEach((b) =>
     b.addEventListener("click", () => {
       adminHistoryFilter = b.dataset.hfilter;
-      renderHistoryFilters(); renderAdminHistory();
+      adminHistoryLimit = 10;
+      renderAdminHistory();
     })
   );
 }
@@ -1244,15 +1282,46 @@ function renderAdminHistory() {
   const container = $("admin-history");
   const summaryEl = document.getElementById("admin-history-summary");
   if (summaryEl) summaryEl.innerHTML = renderHistorySummary(adminHistory);
+  
   renderHistoryFilters();
+
+  let searchHTML = `
+    <div style="margin-bottom: 16px;">
+      <input type="text" id="history-search" class="form-input" placeholder="Search by guest name or reference #..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #eadfc9;">
+    </div>
+  `;
+  if (!document.getElementById("history-search-container")) {
+    container.innerHTML = `<div id="history-search-container">${searchHTML}</div><div id="history-list-container"></div>`;
+  }
+
   let rows = adminHistory;
+  
   if (adminHistoryFilter === "booking" || adminHistoryFilter === "visit") {
     rows = rows.filter((r) => r.type === adminHistoryFilter);
   } else if (adminHistoryFilter !== "all") {
     rows = rows.filter((r) => r.status === adminHistoryFilter);
   }
-  if (!rows.length) { container.innerHTML = '<div class="history-empty">No records match this filter.</div>'; return; }
-  container.innerHTML = '<div class="history-list">' + rows.map((r) => {
+
+  const searchBox = document.getElementById("history-search");
+  if (searchBox) {
+    const query = searchBox.value.toLowerCase();
+    if (query) {
+      rows = rows.filter(r => 
+        (r.guest_name && r.guest_name.toLowerCase().includes(query)) || 
+        (r.ref && r.ref.toLowerCase().includes(query))
+      );
+    }
+  }
+
+  const listContainer = document.getElementById("history-list-container");
+  if (!rows.length) { 
+    listContainer.innerHTML = '<div class="history-empty">No records match this filter.</div>'; 
+    return; 
+  }
+
+  const limitedRows = rows.slice(0, adminHistoryLimit);
+
+  let html = '<div class="history-list">' + limitedRows.map((r) => {
     const [y, m, d] = (r.date || "").split("-");
     const dayNum = d || "—";
     const monthYear = m ? `${MONTHS_SHORT[Number(m) - 1]} ${y}` : "";
@@ -1281,7 +1350,30 @@ function renderAdminHistory() {
         </div>
       </div>`;
   }).join("") + "</div>";
+
+  if (rows.length > adminHistoryLimit) {
+    html += `
+      <div style="text-align:center; margin-top: 16px;">
+        <button class="btn btn-outline-terra" onclick="loadMoreHistory()">Load More Records (${rows.length - adminHistoryLimit} remaining)</button>
+      </div>
+    `;
+  }
+
+  listContainer.innerHTML = html;
+
+  if (searchBox && !searchBox.dataset.listener) {
+    searchBox.dataset.listener = "true";
+    searchBox.addEventListener("input", () => {
+      adminHistoryLimit = 10;
+      renderAdminHistory();
+    });
+  }
 }
+
+window.loadMoreHistory = () => {
+  adminHistoryLimit += 10;
+  renderAdminHistory();
+};
 
 /* ADMIN REFUNDS */
 const REFUND_STATUS_LABELS = {
@@ -1815,23 +1907,71 @@ function renderWalkin(days) {
 /* ============================================================
    ADMIN STATS + CHARTS
    ============================================================ */
+let rawAdminStats = null; 
+
 async function loadAdminStats() {
   try {
     const [summary, monthly] = await Promise.all([
       api("/api/reports/summary"),
       api("/api/reports/monthly"),
     ]);
-    renderStats(summary);
-    renderMonthlyChart(monthly.monthly);
-    renderPkgShare(summary.byPackage);
+    
+    rawAdminStats = summary;
+    
+    renderStats(summary, "All Time");
+    renderChart(summary.upcoming, "all");
+    renderPkgShare(summary.upcoming);
     renderUpcoming(summary.upcoming);
     $("owner-error").classList.add("hidden");
   } catch (err) { showError("owner-error", err.message); }
 }
 
-function renderStats(s) {
+window.setReportTimeframe = (timeframe, btnElement) => {
+  if (!rawAdminStats) return;
+
+  const buttons = btnElement.parentElement.querySelectorAll("button");
+  buttons.forEach(b => { b.className = "btn btn-outline-terra"; });
+  btnElement.className = "btn btn-gold"; 
+
+  if (timeframe === "all") {
+    renderStats(rawAdminStats, "All Time");
+    renderChart(rawAdminStats.upcoming, "all");
+    renderPkgShare(rawAdminStats.upcoming);
+    renderUpcoming(rawAdminStats.upcoming);
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const filteredUpcoming = rawAdminStats.upcoming.filter(r => {
+    const rDate = new Date(r.date + "T00:00:00"); 
+    const diffTime = rDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (timeframe === "today") return diffDays === 0;
+    if (timeframe === "week") return diffDays >= 0 && diffDays <= 7;
+    if (timeframe === "month") return diffDays >= 0 && diffDays <= 30;
+    return true;
+  });
+
+  const label = timeframe === "today" ? "Today" : timeframe === "week" ? "This Week" : "This Month";
+
+  renderStats({
+    ...rawAdminStats,
+    totalBookings: filteredUpcoming.length,
+    revenue: filteredUpcoming.reduce((sum, r) => sum + (r.price || 0), 0), 
+    upcoming: filteredUpcoming
+  }, label);
+
+  renderChart(filteredUpcoming, timeframe);
+  renderPkgShare(filteredUpcoming);
+  renderUpcoming(filteredUpcoming);
+};
+
+function renderStats(s, label = "All Time") {
   const stats = [
-    { icon: "📈", value: peso(s.revenue), label: "Revenue · approved", sub: s.totalBookings + " confirmed" },
+    { icon: "📈", value: peso(s.revenue), label: `Revenue · ${label}`, sub: s.totalBookings + " confirmed" },
     { icon: "📅", value: s.totalBookings, label: "Total bookings", sub: "approved reservations" },
     { icon: "⏱", value: s.pendingDeposits, label: "Deposits to verify", sub: s.activeHolds + " holds running" },
     { icon: "✖", value: s.cancelled, label: "Expired holds", sub: "auto-cancelled by the system" },
@@ -1845,46 +1985,90 @@ function renderStats(s) {
     </div>`).join("");
 }
 
-function renderMonthlyChart(rows) {
+function renderChart(upcomingData, timeframe) {
   const canvas = $("monthly-chart");
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!rows.length) {
+
+  const chartLabel = document.querySelector(".owner-grid .card .label");
+  if (chartLabel) {
+    chartLabel.textContent = timeframe === "all" || timeframe === "month" ? "REVENUE BY MONTH" : "REVENUE BY DAY";
+  }
+
+  if (!upcomingData || !upcomingData.length) {
     ctx.fillStyle = "#847860"; ctx.font = "12px Asap, sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("No booking data yet. Approve a few reservations and the chart fills in.", canvas.width / 2, 110);
+    ctx.fillText("No booking data for this timeframe.", canvas.width / 2, 110);
     return;
   }
+
+  const grouped = {};
+  upcomingData.forEach(r => {
+    if (!r.date) return;
+    const key = timeframe === "all" || timeframe === "month" ? r.date.slice(0, 7) : r.date;
+    if (!grouped[key]) grouped[key] = 0;
+    grouped[key] += Number(r.price || 0);
+  });
+
+  const sortedKeys = Object.keys(grouped).sort();
+  const rows = sortedKeys.map(k => ({
+    label: timeframe === "all" || timeframe === "month" 
+      ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Number(k.slice(5,7)) - 1]
+      : k.slice(5),
+    revenue: grouped[k]
+  }));
+
   const pad = { l: 36, r: 10, t: 14, b: 26 };
   const w = canvas.width - pad.l - pad.r;
   const h = canvas.height - pad.t - pad.b;
-  const max = Math.max(...rows.map((r) => r.revenue)) * 1.15;
+  const max = Math.max(...rows.map((r) => r.revenue)) * 1.15 || 1000;
   const stepX = w / (rows.length - 1 || 1);
   const px = (i) => pad.l + i * stepX;
   const py = (v) => pad.t + h - (v / max) * h;
+
   ctx.strokeStyle = "#84786022"; ctx.lineWidth = 1;
   for (let g = 0; g <= 3; g++) {
     const y = pad.t + (h / 3) * g;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + w, y); ctx.stroke();
   }
+
   const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + h);
   grad.addColorStop(0, "#D9B23F8C"); grad.addColorStop(1, "#D9B23F05");
+  
   ctx.beginPath();
   rows.forEach((r, i) => i ? ctx.lineTo(px(i), py(r.revenue)) : ctx.moveTo(px(0), py(r.revenue)));
   ctx.lineTo(px(rows.length - 1), pad.t + h); ctx.lineTo(px(0), pad.t + h); ctx.closePath();
   ctx.fillStyle = grad; ctx.fill();
+  
   ctx.beginPath();
   rows.forEach((r, i) => i ? ctx.lineTo(px(i), py(r.revenue)) : ctx.moveTo(px(0), py(r.revenue)));
   ctx.strokeStyle = "#B8912F"; ctx.lineWidth = 2.5; ctx.stroke();
+  
   ctx.fillStyle = "#B8912F";
-  rows.forEach((r, i) => { ctx.beginPath(); ctx.arc(px(i), py(r.revenue), 3.5, 0, 7); ctx.fill(); });
+  rows.forEach((r, i) => { 
+    ctx.beginPath(); 
+    ctx.arc(px(i), py(r.revenue), 3.5, 0, 7); 
+    ctx.fill(); 
+  });
+  
   ctx.fillStyle = "#847860"; ctx.font = "11px Asap, sans-serif"; ctx.textAlign = "center";
-  const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  rows.forEach((r, i) => ctx.fillText(names[Number(r.m) - 1], px(i), canvas.height - 8));
+  rows.forEach((r, i) => ctx.fillText(r.label, px(i), canvas.height - 8));
 }
 
-function renderPkgShare(list) {
+function renderPkgShare(upcomingData) {
   const colors = ["#B8912F", "#2E5D46", "#C4572E", "#D9B23F"];
+  
+  const counts = {};
+  upcomingData.forEach(r => {
+    if (r.package) {
+      counts[r.package] = (counts[r.package] || 0) + 1;
+    }
+  });
+
+  const list = Object.entries(counts)
+    .map(([name, c]) => ({ name, c }))
+    .sort((a, b) => b.c - a.c);
+
   const max = Math.max(...list.map((x) => x.c), 1);
   $("pkg-share").innerHTML = list.length ? list.map((x, i) => `
     <div class="share-row">

@@ -740,3 +740,23 @@ h1, h2, h3, .brand-name { font-family: "Fraunces", Georgia, serif; font-weight: 
   border-color: var(--gold);
   box-shadow: 0 0 0 2px #C79A2E33;
 }
+
+/* Status colors for Manager Payments */
+.status-chip.status-approved {
+  background-color: #d1fae5 !important; /* Light green */
+  color: #065f46 !important; /* Dark green text */
+  font-weight: bold;
+}
+
+.status-chip.status-cancelled,
+.status-chip.status-rejected {
+  background-color: #fee2e2 !important; /* Light red */
+  color: #991b1b !important; /* Dark red text */
+  font-weight: bold;
+}
+
+.status-chip.status-verify {
+  background-color: #fef3c7 !important; /* Light yellow */
+  color: #92400e !important; /* Dark yellow text */
+  font-weight: bold;
+}
